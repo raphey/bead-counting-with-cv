@@ -174,7 +174,7 @@ def train(save=False, verbose=False):
     weight = initialize_weight_array(784, 1)
     bias = 0.0
     alpha = 0.001
-    epochs = 100
+    epochs = 1200
     batch_size = 12
     num_batches = len(training[0]) // batch_size
 
@@ -199,4 +199,5 @@ def train(save=False, verbose=False):
         np.save('classifier_data/weight.npy', weight)
         np.save('classifier_data/bias.npy', bias)
 
-train(save=True, verbose=True)
+# train(save=True, verbose=True)
+
