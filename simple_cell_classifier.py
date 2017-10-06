@@ -87,7 +87,44 @@ def prepare_data(c_data, nc_data, valid_portion=0.1, test_portion=0.1, flat=Fals
     return train_data_w_labels, valid_data_w_labels, test_data_w_labels
 
 
+def sigmoid(x):
+    return 1.0 / (1.0 + np.exp(-x))
+
+
+def fwd_pass(x, w, b):
+    return sigmoid(np.dot(x, w) + b)
+
+
+def make_prediction(x, w, b):
+    return fwd_pass(x, w, b).round()
+
+
+def logit_cost(y_hat, y_actual):
+    return 0.5 * sum((y_actual[i] - y_hat[i]) ** 2 for i in range(0, len(y_actual)))[0]
+
+
+def initialize_weight_array(rows, cols, stddev=None, sigma_cutoff=2.0):
+
+    # Default initialization stddev proportional to input size
+    if stddev is None:
+        stddev = (1.0 / (rows * cols)) ** 0.5
+
+    weights = []
+    while len(weights) < rows * cols:
+        new_rand_val = np.random.randn() * stddev
+        if abs(new_rand_val) < sigma_cutoff * stddev:
+            weights.append(new_rand_val)
+    return np.array(weights).reshape(rows, cols)
+
+
+def accuracy(y_pred, y_actual):
+    return np.sum(y_pred == y_actual) / len(y_actual)
+
+
 def unit_tests():
+    cell_data = import_data('training_data/cells')
+    non_cell_data = import_data('training_data/non_cells')
+    training, validation, testing = prepare_data(cell_data, non_cell_data)
 
     # train/valid/test tuples are correct length
     assert(len(training) == 2)
@@ -128,7 +165,38 @@ def unit_tests():
     print('Tests pass')
 
 
-cell_data = import_data('training_data/cells')
-non_cell_data = import_data('training_data/non_cells')
-training, validation, testing = prepare_data(cell_data, non_cell_data)
-unit_tests()
+def train(save=False, verbose=False):
+
+    cell_data = import_data('training_data/cells')
+    non_cell_data = import_data('training_data/non_cells')
+    training, validation, testing = prepare_data(cell_data, non_cell_data, flat=True)
+
+    weight = initialize_weight_array(784, 1)
+    bias = 0.0
+    alpha = 0.001
+    epochs = 100
+    batch_size = 12
+    num_batches = len(training[0]) // batch_size
+
+    for e in range(epochs):
+        cost = 0.0
+        for b in range(num_batches):
+            start_index = batch_size * b
+            batch_x = training[0][start_index:start_index + batch_size]
+            batch_y = training[1][start_index:start_index + batch_size]
+            logits = fwd_pass(batch_x, weight, bias)
+            cost += logit_cost(logits, batch_y)
+            y_diff = batch_y - logits
+            bias += alpha * (y_diff * logits * (1 - logits)).sum(axis=0)
+            weight += alpha * np.dot(batch_x.T, y_diff * logits * (1 - logits))
+
+        pos_v_acc = accuracy(make_prediction(validation[0], weight, bias), validation[1])
+        neg_v_acc = accuracy(make_prediction(validation[2], weight, bias), validation[3])
+        if verbose and (e + 1) % 50 == 0:
+            print('Epoch: {:>4}/{}   Training cost: {:<5.1f}   Pos/neg val. acc.: {:.3f},  {:.3f}'.format(
+                  e + 1, epochs, cost, pos_v_acc, neg_v_acc))
+    if save:
+        np.save('classifier_data/weight.npy', weight)
+        np.save('classifier_data/bias.npy', bias)
+
+train(save=True, verbose=True)
