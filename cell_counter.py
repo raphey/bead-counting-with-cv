@@ -35,6 +35,17 @@ def simple_cell_filter(img, x_c, y_c, a=5):
     return sum(c > d for d in [up, down, left,right]) >= 3
 
 
+def save_cell(img, x_c, y_c, a=14):
+    if not (a <= x_c <= len(img[0]) - a and a <= y_c <= len(img) - a):
+        return
+    cell_img = img[y_c - a: y_c + a, x_c - a: x_c + a]
+    if len(cell_img[0]) < 2 * a:
+        print(x_c, y_c)
+        print(len(cell_img), len(cell_img[0]))
+        quit()
+    count_label = str(100000 + counter)[1:]
+    cv2.imwrite('training_data/sample_{}_{}_x{}_y{}.png'.format(2 * a, count_label, x_c, y_c), cell_img)
+
 
 # Specify image path
 # image_path = 'images/test_array_lo_res.png'
@@ -64,11 +75,16 @@ grayscale_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 # Hi res circles huge, default scaling. Purposely getting multiple circles for each droplet
 droplets =cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, 1, 12, param1=80, param2=30, minRadius=65, maxRadius=93)
 
+# Allowing for the tiniest white circles
 # Hi res tiny-guys huge, default scaling. Getting way more cells than we want, with the goal of filtering later.
-# cells = cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, 1, 8, param1=30, param2=5, minRadius=7, maxRadius=11)
+# cells = cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, 1, 10, param1=80, param2=4, minRadius=3, maxRadius=12)
+
+# Not allowing for the tiniest white circles
+# TRAINING DATA
+cells = cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, 1, 8, param1=40, param2=4, minRadius=10, maxRadius=12)
 
 # More conservative, getting some false negatives
-cells = cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, 1, 8, param1=30, param2=10, minRadius=7, maxRadius=11)
+# cells = cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, 1, 8, param1=30, param2=10, minRadius=7, maxRadius=11)
 
 
 
@@ -89,6 +105,7 @@ if len(droplets) > 0:
         # print(x, y, r)
         if simple_cell_filter(grayscale_image, x, y):
             # draw the circle in the output image
+            save_cell(grayscale_image, x, y)
             counter += 1
             cv2.circle(output, (x, y), r, (0, 255, 0), 1)
 
