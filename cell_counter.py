@@ -2,10 +2,14 @@ __author__ = 'raphey'
 
 import numpy as np
 import cv2
-from simple_cell_classifier import fwd_pass
+from hidden_layer_cell_classifier import fwd_pass
 
 
-def cell_filter(img, x_c, y_c, window=0, threshold=0.8):
+def distance(x1, y1, x2, y2):
+    return ((x1 - x2)**2 + (y1 - y2)**2)**0.5
+
+
+def cell_filter(img, x_c, y_c, window=0, threshold=0.6):
     """
     Uses a linear classifier to determine of a 28x28 image centered at x_c, y_c is a cell.
     Slides a window around to look for maximum likelihood; also stores the maximum center in a
@@ -15,7 +19,7 @@ def cell_filter(img, x_c, y_c, window=0, threshold=0.8):
         return False
 
     max_likelihood = 0.0
-    best_x, best_y = 0, 0
+    best_x, best_y = 0, 0       # Not using this now, but later want to know where best_x and _best_y are
 
     for x_shift in range(-window, window + 1):
         for y_shift in range(-window, window + 1):
@@ -26,23 +30,24 @@ def cell_filter(img, x_c, y_c, window=0, threshold=0.8):
             max_val = cell_img.max()
             scaled_img = (cell_img - min_val) / (max_val - min_val)
             reshaped_img = scaled_img.reshape(1, 784)
-            cell_likelihood = fwd_pass(reshaped_img, weight, bias)
+            _, cell_likelihood = fwd_pass(reshaped_img, weight1, bias1, weight2, bias2)
 
             if cell_likelihood > max_likelihood:
                 max_likelihood = cell_likelihood
                 best_x, best_y = x_c + x_shift, y_c + y_shift
 
     if max_likelihood > threshold:
-        if all((best_x - x)**2 + (best_y - y)**2 > 49.0 for x, y in filtered_cells):
+        if all(distance(best_x, best_y, x, y) > 8.0 for x, y in filtered_cells):
             filtered_cells.append((best_x, best_y))
             return True
     else:
         return False
 
 
-
-
 def save_cell(img, x_c, y_c, a=14):
+    """
+    Write the given portion of image to a new .png file with dimensions 2a by 2a.
+    """
     if not (a <= x_c <= len(img[0]) - a and a <= y_c <= len(img) - a):
         return
     cell_img = img[y_c - a: y_c + a, x_c - a: x_c + a]
@@ -50,20 +55,18 @@ def save_cell(img, x_c, y_c, a=14):
         print(x_c, y_c)
         print(len(cell_img), len(cell_img[0]))
         quit()
-    count_label = str(100000 + counter)[1:]
+    count_label = str(100000 + cell_counter)[1:]
     cv2.imwrite('training_data/sample_{}_{}_x{}_y{}.png'.format(2 * a, count_label, x_c, y_c), cell_img)
 
 
-# Specify image path
-image_path = 'images/test_array_hi_res_4x.png'
-
+# Load image, make a copy for final output, and convert image to grayscale
+image_path = 'images/test_array_2_hi_res_4x.png'
 image = cv2.imread(image_path)
 output = image.copy()
 grayscale_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
 # Perform circle detection for droplets and cells
 droplets =cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, 1, 12, param1=80, param2=30, minRadius=65, maxRadius=93)
-# Used for getting training data:
 cells = cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, 1, 8, param1=40, param2=4, minRadius=10, maxRadius=12)
 
 # Alternate cell detection allowing for tiny white circles in cell centers
@@ -72,40 +75,74 @@ cells = cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, 1, 8, param1=40, p
 
 filtered_cells = []
 
-# Load weight and bias for linear classifier
-weight = np.load('classifier_data/weight.npy')
-bias = np.load('classifier_data/bias.npy')
+# Load weights and biases for classifier
+weight1 = np.load('classifier_data/hidden_layer_classifier_weight1.npy')
+bias1 = np.load('classifier_data/hidden_layer_classifier_bias1.npy')
+weight2 = np.load('classifier_data/hidden_layer_classifier_weight2.npy')
+bias2 = np.load('classifier_data/hidden_layer_classifier_bias2.npy')
 
-if len(droplets) > 0:
-    # convert the (x, y) coordinates and radius of the droplets and cells to integers
-    droplets = np.round(droplets[0, :]).astype('int')
-    cells = np.round(cells[0, :]).astype('int')
+# convert the (x, y) coordinates and radius of the droplets and cells to integers
+droplets = np.round(droplets[0, :]).astype('int')
+valid_droplets = []
+cells = np.round(cells[0, :]).astype('int')
+droplet_clusters = []
+cluster_lookup = {}
+
+# This will group together together the droplet circles, since each droplet is made of multiple circles.
+for x, y, r in droplets:
+    if not (100 < x < 1692 and 100 < y < 1692):       # Check that droplets are inbounds
+        continue
+
+    valid_droplets.append((x, y, r))
+
+    for i, dc in enumerate(droplet_clusters):
+        if any(distance(x, y, x2, y2) < 40 for x2, y2, _ in dc):        # Are any droplet circles more than 40 away?
+            cluster_lookup[(x, y, r)] = i
+            droplet_clusters[i].append((x, y, r))
+            break
+    else:
+        cluster_lookup[(x, y, r)] = len(droplet_clusters)
+        droplet_clusters.append([(x, y, r)])
+
+cluster_count = [0] * len(droplet_clusters)
+cluster_cells = [[] for _ in range(len(droplet_clusters))]
 
 
-    for x, y, r in droplets:
-        # print(x, y, r)
-        # draw the droplet circle in the output image, then draw a small square at the center
-        cv2.circle(output, (x, y), r, (0, 0, 255), 1)
-        cv2.rectangle(output, (x - 1, y - 1), (x + 1, y + 1), (0, 128, 255), -1)
+cell_counter = 0
 
-    counter = 0
-    for x, y, r in cells:
-        # print(x, y, r)
-        if cell_filter(grayscale_image, x, y, window=9):
-            # draw the circle in the output image
-            counter += 1
-            cv2.circle(output, (x, y), r, (0, 255, 0), 1)
+# For each cell, we want to check if it is valid, and if so, link it to its containing droplet cluster
+for x, y, r in cells:
+    if not cell_filter(grayscale_image, x, y, window=4):
+        continue
 
-            # Save image to file
-            # save_cell(grayscale_image, x, y)
+    cell_counter += 1   # Not currently being used, but this is needed for saving
 
-    print("Total number of cells detected:", counter)
+    closest_droplet_circle = min(valid_droplets, key=lambda z: distance(x, y, z[0], z[1]))
+    i = cluster_lookup[closest_droplet_circle]
+    if any(distance(x, y, d_x, d_y) < d_r for d_x, d_y, d_r in droplet_clusters[i]):
+        # Cell is enclosed by cluster i
+        cluster_cells[i].append((x, y, r))
 
-    image_and_output = np.hstack([image, output])
+# Go through each droplet cluster and print the droplet boundaries (commented out), the cells, and the count
+for i, dc in enumerate(droplet_clusters):
+    color = (np.random.randint(0, 256), np.random.randint(0, 256), np.random.randint(0, 256))
+    # for x, y, r in dc:
+    #     cv2.circle(output, (x, y), r, color, 1)
 
-    # show the original and output image
-    cv2.imshow("output", image_and_output)
-    cv2.waitKey(0)
+    for x, y, r in cluster_cells[i]:
+        cv2.circle(output, (x, y), r, color, 1)
 
-    # save the original and output image
-    cv2.imwrite('images/output.png', image_and_output)
+    avg_x = int(sum(x for x, _, _ in dc) / len(dc))
+    avg_y = int(sum(y for _, y, _ in dc) / len(dc))
+    cv2.putText(output, str(len(cluster_cells[i])), (avg_x - 15, avg_y + 15), fontFace=0, fontScale=2.0, color=color,
+                thickness=4)
+
+# Combine original image analyzed output on one side
+image_and_output = np.hstack([image, output])
+
+# Show the original and output image side by side
+cv2.imshow("output", image_and_output)
+cv2.waitKey(0)
+
+# Save the original and output image
+cv2.imwrite('images/output.png', image_and_output)
