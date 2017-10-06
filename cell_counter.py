@@ -2,37 +2,44 @@ __author__ = 'raphey'
 
 import numpy as np
 import cv2
+from simple_cell_classifier import fwd_pass
 
 
-def simple_cell_filter(img, x_c, y_c, a=5):
+def cell_filter(img, x_c, y_c, window=0, threshold=0.8):
     """
-    The idea here was to do a simple filter to cut down on the false positives for cells.
-    Turns out it's hard to get this to do too much good.
+    Uses a linear classifier to determine of a 28x28 image centered at x_c, y_c is a cell.
+    Slides a window around to look for maximum likelihood; also stores the maximum center in a
+    global list after checking that it isn't too close to an already-found center.
     """
-    # Filter is turned off...
-    return True
-
-    x_min = max(0, x_c - a)
-    x_max = min(len(img[0]) - 1, x_c + a + 1)
-    y_min = max(0, y_c - a)
-    y_max = min(len(img) - 1, y_c + a + 1)
-    sub_array = img[y_min: y_max, x_min: x_max]  # Tricky/annoying! Indices switched
-    avg_value = int(sub_array.mean())
-    min_value = sub_array.min()
-    max_value = sub_array.max()
-    std_dev = int(sub_array.std())
-    c = img[y_c][x_c]
-    up = img[y_min][x_c]
-    down = img[y_max][x_c]
-    left = img[y_c][x_min]
-    right = img[y_c][x_max]
-    if min_value < 50:   # Too dark
+    if not (14 + window <= x_c <= len(img[0]) - 14 - window and 14 + window <= y_c <= len(img) - 14 - window):
         return False
 
-    if max_value - min_value < 25:  # Too uniform
+    max_likelihood = 0.0
+    best_x, best_y = 0, 0
+
+    for x_shift in range(-window, window + 1):
+        for y_shift in range(-window, window + 1):
+            x_min = x_c - 14 + x_shift
+            y_min = y_c - 14 + y_shift
+            cell_img = img[y_min: y_min + 28, x_min: x_min + 28].astype(float)
+            min_val = cell_img.min()
+            max_val = cell_img.max()
+            scaled_img = (cell_img - min_val) / (max_val - min_val)
+            reshaped_img = scaled_img.reshape(1, 784)
+            cell_likelihood = fwd_pass(reshaped_img, weight, bias)
+
+            if cell_likelihood > max_likelihood:
+                max_likelihood = cell_likelihood
+                best_x, best_y = x_c + x_shift, y_c + y_shift
+
+    if max_likelihood > threshold:
+        if all((best_x - x)**2 + (best_y - y)**2 > 49.0 for x, y in filtered_cells):
+            filtered_cells.append((best_x, best_y))
+            return True
+    else:
         return False
 
-    return sum(c > d for d in [up, down, left,right]) >= 3
+
 
 
 def save_cell(img, x_c, y_c, a=14):
@@ -48,45 +55,26 @@ def save_cell(img, x_c, y_c, a=14):
 
 
 # Specify image path
-# image_path = 'images/test_array_lo_res.png'
-# image_path = 'images/test_array_hi_res_2x_edge_threshold2.png'
-# image_path = 'images/huge_and_threshold.png'
 image_path = 'images/test_array_hi_res_4x.png'
 
 image = cv2.imread(image_path)
 output = image.copy()
 grayscale_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-# droplets = cv2.HoughCircles(image=grayscale_image, method=cv2.HOUGH_GRADIENT, dp=1,
-#                             minDist=20, param1=80, param2=1, minRadius=11, maxRadius=11)
-# cells = cv2.HoughCircles(image=grayscale_image, method=cv2.HOUGH_GRADIENT, dp=1,
-#                          minDist=4, param1=80, param2=2, minRadius=0, maxRadius=3)
-
-# Hi res circles big
-# droplets =cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, 1, 80, param1=80, param2=3, minRadius=40, maxRadius=48)
-# Hi res tiny-guys big
-# cells = cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, 1, 7, param1=20, param2=3, minRadius=4, maxRadius=7)
-
-# Hi res circles huge, thresholded
-# droplets =cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, 1, 160, param1=80, param2=3, minRadius=80, maxRadius=96)
-# Hi res tiny-guys huge, thresholded
-# cells = cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, 1, 14, param1=100, param2=10, minRadius=3, maxRadius=12)
-
-# Hi res circles huge, default scaling. Purposely getting multiple circles for each droplet
+# Perform circle detection for droplets and cells
 droplets =cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, 1, 12, param1=80, param2=30, minRadius=65, maxRadius=93)
-
-# Allowing for the tiniest white circles
-# Hi res tiny-guys huge, default scaling. Getting way more cells than we want, with the goal of filtering later.
-# cells = cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, 1, 10, param1=80, param2=4, minRadius=3, maxRadius=12)
-
-# Not allowing for the tiniest white circles
-# TRAINING DATA
+# Used for getting training data:
 cells = cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, 1, 8, param1=40, param2=4, minRadius=10, maxRadius=12)
 
-# More conservative, getting some false negatives
-# cells = cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, 1, 8, param1=30, param2=10, minRadius=7, maxRadius=11)
+# Alternate cell detection allowing for tiny white circles in cell centers
+# cells = cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, 1, 8, param1=40, param2=4, minRadius=3, maxRadius=12)
 
 
+filtered_cells = []
+
+# Load weight and bias for linear classifier
+weight = np.load('classifier_data/weight.npy')
+bias = np.load('classifier_data/bias.npy')
 
 if len(droplets) > 0:
     # convert the (x, y) coordinates and radius of the droplets and cells to integers
@@ -103,11 +91,13 @@ if len(droplets) > 0:
     counter = 0
     for x, y, r in cells:
         # print(x, y, r)
-        if simple_cell_filter(grayscale_image, x, y):
+        if cell_filter(grayscale_image, x, y, window=9):
             # draw the circle in the output image
-            save_cell(grayscale_image, x, y)
             counter += 1
             cv2.circle(output, (x, y), r, (0, 255, 0), 1)
+
+            # Save image to file
+            # save_cell(grayscale_image, x, y)
 
     print("Total number of cells detected:", counter)
 
