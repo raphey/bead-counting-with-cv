@@ -42,8 +42,8 @@ l3i = tf.sigmoid(tf.matmul(l2i, w2) + b2)
 y = tf.sigmoid(tf.matmul(l3i, w3) + b3)
 
 
-epochs = 80
-batch_size = 12
+epochs = 25
+batch_size = 32
 num_batches = len(training[0]) // batch_size
 learning_rate = 0.001
 
@@ -59,6 +59,9 @@ optimizer = tf.train.AdamOptimizer(learning_rate=0.001).minimize(cost)
 
 # Initializing the variables
 init = tf.global_variables_initializer()
+
+# For saving model
+saver = tf.train.Saver()
 
 # Launch the graph
 with tf.Session() as sess:
@@ -88,3 +91,6 @@ with tf.Session() as sess:
 
     print('Training complete. Positive & negative testing accuracy: {:.3f},  {:.3f}'.format(
           pos_test_acc, neg_test_acc))
+
+    save_path = saver.save(sess, "classifier_data/tf_model.ckpt")
+    print("Model saved in file: %s" % save_path)

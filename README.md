@@ -24,6 +24,7 @@ Here's how I've approached the various sub-problems:
 
 ### To-do
 
+- Use more accurate TF classification in cell counter
 - Get accurate cell center coordinates for one image's worth of cells
 - Use cell centers to get examples and non-examples (many more negatives--how many is best?)
 - See if a TF 3- or 4-layer network trained on that can get >99% accuracy for pos. and neg., otherwise, use a CNN.
