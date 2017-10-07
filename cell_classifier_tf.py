@@ -22,22 +22,30 @@ sess = tf.InteractiveSession()
 x = tf.placeholder(tf.float32, shape=[None, 784])
 y_ = tf.placeholder(tf.float32, shape=[None, 1])
 
-# Variables
-w1 = tf.Variable(tf.random_normal(shape=[784, 25], stddev=0.1))
+# Variables for one hidden layer
+# w1 = tf.Variable(tf.random_normal(shape=[784, 25], stddev=0.1))
+# b1 = tf.Variable(tf.zeros([1]))
+# w2 = tf.Variable(tf.random_normal(shape=[25, 1], stddev=0.1))
+# b2 = tf.Variable(tf.zeros([1]))
+# l2i = tf.sigmoid(tf.matmul(x, w1) + b1)
+# y = tf.sigmoid(tf.matmul(l2i, w2) + b2)
+
+# Variables for two hidden layers
+w1 = tf.Variable(tf.random_normal(shape=[784, 80], stddev=0.1))
 b1 = tf.Variable(tf.zeros([1]))
-w2 = tf.Variable(tf.random_normal(shape=[25, 1], stddev=0.1))
+w2 = tf.Variable(tf.random_normal(shape=[80, 10], stddev=0.1))
 b2 = tf.Variable(tf.zeros([1]))
-
+w3 = tf.Variable(tf.random_normal(shape=[10, 1], stddev=0.1))
+b3 = tf.Variable(tf.zeros([1]))
 l2i = tf.sigmoid(tf.matmul(x, w1) + b1)
-y = tf.sigmoid(tf.matmul(l2i, w2) + b2)
+l3i = tf.sigmoid(tf.matmul(l2i, w2) + b2)
+y = tf.sigmoid(tf.matmul(l3i, w3) + b3)
 
 
-epochs = 120
+epochs = 80
 batch_size = 12
 num_batches = len(training[0]) // batch_size
 learning_rate = 0.001
-
-print(len(training[0]))
 
 # Cost
 cost = tf.nn.l2_loss(y - y_, name="squared_error_cost")

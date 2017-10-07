@@ -22,6 +22,16 @@ Here's how I've approached the various sub-problems:
 4. Containment/belonging. Each droplet cluster is made of a number of circles. I find the circle center that each cell is closest to, and then I assign the cell to the corresponding cluster. I also check that the cell is contained inside at least one of the cluster circles, as a way of getting rid of false positives that lie outside the droplets, but this shouldn't be necessary once cell detection is improved.
 
 
+### To-do
+
+- Get accurate cell centers for one image's worth of cells
+- Use cell centers to get examples and non-examples (many more negatives--how many is best?)
+- See if a TF 3- or 4-layer network trained on that can get >99% accuracy for pos. and neg., otherwise, use a CNN.
+- Modify cell counter to work at a different image scale, or modify it to work at two different scales (currently uses 4x image--better if no image enlargement was needed).
+-Decide if cell detection should be independent of small circle detection with many false positives, or if it should move a window across the entire image.
+
+
+
 ### File descriptions
 - [cell_counter.py](cell_counter.py): Main code for counting cells per droplet
 - [classifier_util.py](classifier_util.py): Tools for training models to recognize cells
