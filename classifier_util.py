@@ -16,10 +16,14 @@ def import_data(directory):
     for image_path in glob.glob(directory + '/*.png'):
         img = cv2.imread(image_path)
         gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(float)
+
+        # gray_img /= 256.0    # Simple scaling doesn't seem to work as well
+
         min_val = gray_img.min()
         max_val = gray_img.max()
         gray_img -= min_val
         gray_img /= (max_val - min_val)
+
         arr.append(gray_img)
 
     return np.array(arr)
