@@ -17,7 +17,7 @@ Here's how I've approached the various sub-problems:
 
 3. Image processing. My main pre-processing step was to scale the images to be larger--OpenCV restricts some parameters to integer values (minDist, minRadius, maxRadius), and this lets me get around that. All of my other processing efforts seemed to have very little impact. This image below looks like it would be much easier to work with:
 
-![thresholded droplets image](images/test_array_1_hi_res_4x_thresholded.png | width=300)
+![thresholded droplets image](images/test_array_1_hi_res_thresholded.png)
 
 But I found that my cell recognition did no better--maybe the canny edge detection is already accomplishing most of what I was trying to do by hand with pre-processing. 
 
