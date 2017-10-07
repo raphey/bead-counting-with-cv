@@ -23,7 +23,7 @@ Here's how I've approached the various sub-problems:
 
 
 ### File descriptions
-- cell_counter.py   Main code for counting cells per droplet
-- classifier_util.py   Tools for training models to recognize cells
-- simple_cell_classifier.py   One-layer classifier with sigmoid activation
-- hidden_layer_cell_classifier.py   Two-layer classifier
+- [cell_counter.py](cell_counter.py): Main code for counting cells per droplet
+- [classifier_util.py](classifier_util.py): Tools for training models to recognize cells
+- [simple_cell_classifier.py](simple_cell_classifier.py): One-layer classifier with sigmoid activation
+- [hidden_layer_cell_classifier.py](hidden_layer_cell_classifier.py): Two-layer classifier
