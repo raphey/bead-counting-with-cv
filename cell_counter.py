@@ -29,7 +29,12 @@ def cell_filter(img, x_c, y_c, window=0, threshold=0.6):
             min_val = cell_img.min()
             max_val = cell_img.max()
             scaled_img = (cell_img - min_val) / (max_val - min_val)
+
+            # Alternate way to scale image that doesn't seem to work as well (requires corresponding training.
+            # scaled_img = cell_img / 256.0
+
             reshaped_img = scaled_img.reshape(1, 784)
+
             _, cell_likelihood = fwd_pass(reshaped_img, weight1, bias1, weight2, bias2)
 
             if cell_likelihood > max_likelihood:
@@ -60,7 +65,7 @@ def save_cell(img, x_c, y_c, a=14):
 
 
 # Load image, make a copy for final output, and convert image to grayscale
-image_path = 'images/test_array_2_hi_res_4x.png'
+image_path = 'images/test_array_1_hi_res_4x.png'
 image = cv2.imread(image_path)
 output = image.copy()
 grayscale_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -90,7 +95,7 @@ cluster_lookup = {}
 
 # This will group together together the droplet circles, since each droplet is made of multiple circles.
 for x, y, r in droplets:
-    if not (100 < x < 1692 and 100 < y < 1692):       # Check that droplets are inbounds
+    if not (120 < x < 1672 and 120 < y < 1672):       # Check that droplets are inbounds
         continue
 
     valid_droplets.append((x, y, r))
@@ -117,7 +122,9 @@ for x, y, r in cells:
 
     cell_counter += 1   # Not currently being used, but this is needed for saving
 
-    closest_droplet_circle = min(valid_droplets, key=lambda z: distance(x, y, z[0], z[1]))
+    closest_droplet_circle = tuple(min(droplets, key=lambda z: distance(x, y, z[0], z[1])))
+    if closest_droplet_circle not in valid_droplets:
+        continue
     i = cluster_lookup[closest_droplet_circle]
     if any(distance(x, y, d_x, d_y) < d_r for d_x, d_y, d_r in droplet_clusters[i]):
         # Cell is enclosed by cluster i
