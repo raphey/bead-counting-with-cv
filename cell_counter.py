@@ -56,10 +56,7 @@ def save_cell(img, x_c, y_c, a=14):
     if not (a <= x_c <= len(img[0]) - a and a <= y_c <= len(img) - a):
         return
     cell_img = img[y_c - a: y_c + a, x_c - a: x_c + a]
-    if len(cell_img[0]) < 2 * a:
-        print(x_c, y_c)
-        print(len(cell_img), len(cell_img[0]))
-        quit()
+
     count_label = str(100000 + cell_counter)[1:]
     cv2.imwrite('training_data/sample_{}_{}_x{}_y{}.png'.format(2 * a, count_label, x_c, y_c), cell_img)
 
