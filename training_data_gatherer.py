@@ -5,7 +5,7 @@ import cv2
 import matplotlib.pyplot as plt
 
 
-# Tool to retrieve clicks, from
+# Tool to retrieve clicks
 class ClickClass():
     def __init__(self, filepath):
         self.fname = filepath

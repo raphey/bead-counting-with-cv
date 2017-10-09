@@ -87,7 +87,7 @@ saver = tf.train.Saver()
 # do some work with the model.
 with tf.Session() as sess:
     # Restore variables from disk.
-    saver.restore(sess, "classifier_data/tf_nn_classifier/tf_model.ckpt")
+    saver.restore(sess, "classifier_data/tf_model.ckpt")
     print("TensorFlow model restored.")
 
     # Load image, make a copy for final output, and convert image to grayscale

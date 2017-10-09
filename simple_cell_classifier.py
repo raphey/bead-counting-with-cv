@@ -45,8 +45,8 @@ def train(save=False, verbose=False):
             print('Epoch: {:>4}/{}   Training cost: {:<5.1f}   Pos. & neg. val. acc.: {:.3f},  {:.3f}'.format(
                   e + 1, epochs, cost, pos_valid_acc, neg_valid_acc))
     if save:
-        np.save('classifier_data/simple_cell_classifier_weight.npy', weight)
-        np.save('classifier_data/simple_cell_classifier_bias.npy', bias)
+        np.save('classifier_data/simple_cell_classifier/weight.npy', weight)
+        np.save('classifier_data/simple_cell_classifier/bias.npy', bias)
 
     pos_test_acc = accuracy(make_prediction(testing[0], weight, bias), testing[1])
     neg_test_acc = accuracy(make_prediction(testing[2], weight, bias), testing[3])

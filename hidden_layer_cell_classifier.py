@@ -61,10 +61,10 @@ def train(save=False, verbose=False):
             print('Epoch: {:>4}/{}   Training cost: {:<5.1f}   Pos. & neg. val. acc.: {:.3f},  {:.3f}'.format(
                   e + 1, epochs, cost, pos_valid_acc, neg_valid_acc))
     if save:
-        np.save('classifier_data/hidden_layer_classifier_weight1.npy', weight1)
-        np.save('classifier_data/hidden_layer_classifier_bias1.npy', bias1)
-        np.save('classifier_data/hidden_layer_classifier_weight2.npy', weight2)
-        np.save('classifier_data/hidden_layer_classifier_bias2.npy', bias2)
+        np.save('classifier_data/hidden_layer_classifier/weight1.npy', weight1)
+        np.save('classifier_data/hidden_layer_classifier/bias1.npy', bias1)
+        np.save('classifier_data/hidden_layer_classifier/weight2.npy', weight2)
+        np.save('classifier_data/hidden_layer_classifier/bias2.npy', bias2)
 
     pos_test_acc = accuracy(make_prediction(testing[0], weight1, bias1, weight2, bias2), testing[1])
     neg_test_acc = accuracy(make_prediction(testing[2], weight1, bias1, weight2, bias2), testing[3])

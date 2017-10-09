@@ -78,10 +78,10 @@ cells = cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, 1, 8, param1=40, p
 filtered_cells = []
 
 # Load weights and biases for classifier
-weight1 = np.load('classifier_data/hidden_layer_classifier_weight1.npy')
-bias1 = np.load('classifier_data/hidden_layer_classifier_bias1.npy')
-weight2 = np.load('classifier_data/hidden_layer_classifier_weight2.npy')
-bias2 = np.load('classifier_data/hidden_layer_classifier_bias2.npy')
+weight1 = np.load('classifier_data/hidden_layer_classifier/weight1.npy')
+bias1 = np.load('classifier_data/hidden_layer_classifier/bias1.npy')
+weight2 = np.load('classifier_data/hidden_layer_classifier/weight2.npy')
+bias2 = np.load('classifier_data/hidden_layer_classifier/bias2.npy')
 
 # convert the (x, y) coordinates and radius of the droplets and cells to integers
 droplets = np.round(droplets[0, :]).astype('int')
@@ -130,8 +130,6 @@ for x, y, r in cells:
 # Go through each droplet cluster and print the droplet boundaries (commented out), the cells, and the count
 for i, dc in enumerate(droplet_clusters):
     color = (np.random.randint(0, 256), np.random.randint(0, 256), np.random.randint(0, 256))
-    # for x, y, r in dc:
-    #     cv2.circle(output, (x, y), r, color, 1)
 
     for x, y, r in cluster_cells[i]:
         cv2.circle(output, (x, y), r, color, 1)

@@ -5,7 +5,7 @@ import glob
 import cv2
 
 
-def import_data(directory):
+def import_data(directory, extra_dim=False):
     """
     Returns a numpy array with all the .png files in a directory.
     arr[i, j, k] is the ith image, vertical coordinate j (careful!), horizontal coordinate k.
@@ -19,10 +19,14 @@ def import_data(directory):
 
         # gray_img /= 256.0    # Simple scaling doesn't seem to work as well
 
+        # Scale each image to range 0.0 - 1.0
         min_val = gray_img.min()
         max_val = gray_img.max()
         gray_img -= min_val
         gray_img /= (max_val - min_val)
+
+        if extra_dim:                           # Add extra dimension for convolution
+            gray_img = np.atleast_3d(gray_img)
 
         arr.append(gray_img)
 

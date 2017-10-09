@@ -24,12 +24,9 @@ Here's how I've approached the various sub-problems:
 
 ### To-do
 
-- Use more accurate TF classification in cell counter (done--not much better)
-- Get accurate cell center coordinates for one image's worth of cells
-- Use cell centers to get examples and non-examples (many more negatives--how many is best?)
-- See if a TF 3- or 4-layer network trained on that can get >99% accuracy for pos. and neg., otherwise, use a CNN.
+- Try to improve recognition > 99% for positive ID, starting by examining incorrect guesses--are the images poorly centered?
 - Modify cell counter to work at a different image scale, or modify it to work at two different scales (currently uses 4x image--better if no image enlargement was needed).
--Decide if cell detection should be independent of small circle detection with many false positives, or if it should move a window across the entire image.
+- Decide if cell detection should be independent of small circle detection with many false positives, or if it should move a window across the entire image.
 
 
 

@@ -92,5 +92,5 @@ with tf.Session() as sess:
     print('Training complete. Positive & negative testing accuracy: {:.3f},  {:.3f}'.format(
           pos_test_acc, neg_test_acc))
 
-    save_path = saver.save(sess, "classifier_data/tf_model.ckpt")
+    save_path = saver.save(sess, "classifier_data/tf_nn_classifier/tf_model.ckpt")
     print("Model saved in file: %s" % save_path)
