@@ -40,7 +40,7 @@ def show_positive_coords(img, pos_coords):
     cv2.waitKey(0)
 
 
-def save_training_data_from_coords(img, pos_coords, pos_radius=0, neg_radius=3,
+def save_training_data_from_coords(img, save_directory, pos_coords, pos_radius=0, neg_radius=3,
                                    neg_stride=2, edge_border=12):
     """
     Saves a series of 9x9 sections of img based on positive example coordinate pairs.
@@ -67,10 +67,12 @@ def save_training_data_from_coords(img, pos_coords, pos_radius=0, neg_radius=3,
 
     for x, y in pos_coords:
         for x_adj, y_adj in pos_shift_pairs:
+            if not (4 <= x + x_adj < len(img[0]) - 4 and 4 <= y + y_adj < len(img) - 4):
+                continue
             cell_img = grab_9x9_image_section(img, x + x_adj, y + y_adj)
             count_label = str(1000000 + cell_counter)[1:]
-            cv2.imwrite('training_data/set2/cells/sample_{}_x{}_y{}.png'.format(
-                        count_label, x + x_adj, y + y_adj), cell_img)
+            cv2.imwrite('{}/cells/sample_{}_x{}_y{}.png'.format(
+                        save_directory, count_label, x + x_adj, y + y_adj), cell_img)
             cell_counter += 1
         for x_adj, y_adj in neg_shift_pairs:
             non_negative_coords.add((x + x_adj, y + y_adj))
@@ -83,8 +85,8 @@ def save_training_data_from_coords(img, pos_coords, pos_radius=0, neg_radius=3,
                 continue
             non_cell_img = grab_9x9_image_section(img, x, y)
             count_label = str(1000000 + non_cell_counter)[1:]
-            cv2.imwrite('training_data/set2/non_cells/sample_{}_x{}_y{}.png'.format(
-                        count_label, x, y), non_cell_img)
+            cv2.imwrite('{}/non_cells/sample_{}_x{}_y{}.png'.format(
+                        save_directory, count_label, x, y), non_cell_img)
             non_cell_counter += 1
 
 
@@ -98,6 +100,6 @@ image = cv2.imread(image_path)
 grayscale_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
 # Load positive example coordinates from csv
-pos_data = np.loadtxt(open("training/data/cell_coords.csv", "rb"), delimiter=",", skiprows=1, dtype=int)
+pos_data = np.loadtxt(open("training_data/set3/cell_coords_refined.csv", "rb"), delimiter=",", skiprows=1, dtype=int)
 
-save_training_data_from_coords(grayscale_image, pos_data)
+save_training_data_from_coords(grayscale_image, 'training_data/set3', pos_data, pos_radius=1, neg_radius=3)

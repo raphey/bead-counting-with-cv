@@ -67,18 +67,21 @@ def save_cell(img, x_c, y_c, a=14):
 
 tf.reset_default_graph()
 
-# Create some variables and the placeholder for input
-x_input = tf.placeholder(tf.float32, shape=[None, 784])
+# Convolutional filter depths:
+depths = [32, 64, 128]
 
-w1 = tf.Variable(tf.random_normal(shape=[784, 80], stddev=0.1))
-b1 = tf.Variable(tf.zeros([1]))
-w2 = tf.Variable(tf.random_normal(shape=[80, 10], stddev=0.1))
-b2 = tf.Variable(tf.zeros([1]))
-w3 = tf.Variable(tf.random_normal(shape=[10, 1], stddev=0.1))
-b3 = tf.Variable(tf.zeros([1]))
-l2i = tf.sigmoid(tf.matmul(x_input, w1) + b1)
-l3i = tf.sigmoid(tf.matmul(l2i, w2) + b2)
-y_pred = tf.sigmoid(tf.matmul(l3i, w3) + b3)
+# Weight and bias variables
+weights = {
+    'wc1': tf.Variable(tf.random_normal(shape=[3, 3, 1, depths[0]], stddev=0.06)),
+    'wc2': tf.Variable(tf.random_normal(shape=[3, 3, depths[0], depths[1]], stddev=0.1)),
+    'wd1': tf.Variable(tf.random_normal(shape=[9 * depths[1], depths[2]], stddev=0.1)),
+    'out': tf.Variable(tf.random_normal(shape=[depths[2], 1], stddev=0.1))}
+
+biases = {
+    'bc1': tf.Variable(tf.zeros([depths[0]])),
+    'bc2': tf.Variable(tf.zeros([depths[1]])),
+    'bd1': tf.Variable(tf.zeros([depths[2]])),
+    'out': tf.Variable(tf.zeros([1]))}
 
 # Add ops to save and restore all the variables.
 saver = tf.train.Saver()
@@ -87,18 +90,38 @@ saver = tf.train.Saver()
 # do some work with the model.
 with tf.Session() as sess:
     # Restore variables from disk.
-    saver.restore(sess, "classifier_data/tf_model.ckpt")
+    saver.restore(sess, "classifier_data/tf_cnn_classifier/tf_cnn_model.ckpt")
     print("TensorFlow model restored.")
 
     # Load image, make a copy for final output, and convert image to grayscale
-    image_path = 'images/test_array_1_hi_res_4x.png'
+    image_path = 'images/test_array_1_hi_res.png'
     image = cv2.imread(image_path)
     output = image.copy()
     grayscale_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
     # Perform circle detection for droplets and cells
-    droplets =cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, 1, 12, param1=80, param2=30, minRadius=65, maxRadius=93)
-    cells = cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, 1, 8, param1=40, param2=4, minRadius=10, maxRadius=12)
+    droplets = cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, 1, minDist=3, param1=80, param2=18,
+                                minRadius=16, maxRadius=23)
+    cells = cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, 1, minDist=2, param1=20, param2=1,
+                             minRadius=2, maxRadius=3)
+
+    print(droplets)
+    print(cells)
+
+    if droplets is not None:
+        droplets = np.round(droplets[0, :]).astype('int')
+
+    for x, y, r in droplets:
+        cv2.circle(output, (x, y), r, (0, 256, 0), 1)
+
+    # Combine original image analyzed output on one side
+    image_and_output = np.hstack([image, output])
+
+    # Show the original and output image side by side
+    cv2.imshow("output", image_and_output)
+    cv2.waitKey(0)
+
+    quit()
 
     # Alternate cell detection allowing for tiny white circles in cell centers
     # cells = cv2.HoughCircles(grayscale_image, cv2.HOUGH_GRADIENT, 1, 8, param1=40, param2=4, minRadius=3, maxRadius=12)
