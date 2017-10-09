@@ -51,7 +51,7 @@ def train(data_directory, save=False):
     x = tf.placeholder(tf.float32, shape=[None, 9, 9, 1])
     y_ = tf.placeholder(tf.float32, shape=[None, 1])
 
-    epochs = 60
+    epochs = 20
     batch_size = 32
     num_batches = len(training[0]) // batch_size
     learning_rate = 0.001
@@ -163,12 +163,16 @@ tf.reset_default_graph()
 # Convolutional filter depths:
 depths = [32, 64, 128]
 
+# Weight initialization standard deviations
+std_devs = [2.0 / (9 * depths[0]) ** 0.5, 2.0 / (9 * depths[0] * depths[1]) ** 0.5,
+           2.0 / (9 * depths[1] * depths[2]) ** 0.5, 1.0 / (depths[2]) ** 0.5]
+
 # Weight and bias variables
 weights = {
-    'wc1': tf.Variable(tf.random_normal(shape=[3, 3, 1, depths[0]], stddev=0.06)),
-    'wc2': tf.Variable(tf.random_normal(shape=[3, 3, depths[0], depths[1]], stddev=0.007)),
-    'wd1': tf.Variable(tf.random_normal(shape=[9 * depths[1], depths[2]], stddev=0.007)),
-    'out': tf.Variable(tf.random_normal(shape=[depths[2], 1], stddev=0.09))}
+    'wc1': tf.Variable(tf.random_normal(shape=[3, 3, 1, depths[0]], stddev=std_devs[0])),
+    'wc2': tf.Variable(tf.random_normal(shape=[3, 3, depths[0], depths[1]], stddev=std_devs[1])),
+    'wd1': tf.Variable(tf.random_normal(shape=[9 * depths[1], depths[2]], stddev=std_devs[2])),
+    'out': tf.Variable(tf.random_normal(shape=[depths[2], 1], stddev=std_devs[3]))}
 
 biases = {
     'bc1': tf.Variable(tf.zeros([depths[0]])),
@@ -176,8 +180,8 @@ biases = {
     'bd1': tf.Variable(tf.zeros([depths[2]])),
     'out': tf.Variable(tf.zeros([1]))}
 
-train(data_directory='training_data/set3')
+# train(data_directory='training_data/set3', save=True)
 
-# find_and_save_mistakes('training_data/set2/cells', 1.0, 'training_data/set2/false_negatives')
+find_and_save_mistakes('training_data/set2/cells', 1.0, 'training_data/set2/false_negatives')
 # find_and_save_mistakes('training_data/set2/non_cells', 0.0, 'training_data/set2/false_positives')
 
