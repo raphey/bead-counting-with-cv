@@ -7,7 +7,7 @@ My biologist friend wants to be able to take an image like what's below, with an
 
 Here's an example what I've been able to do using OpenCV and TensorFlow:
 
-![cell recognition output from 17.10.10, image 1](images/output_17.10.10.1.img1_annotated_hi_res.png)
+![cell recognition output from 17.10.10, image 1](images/output_17.10.10.1_img1_annotated_hi_res.png)
 
 ### Details
 
