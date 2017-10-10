@@ -7,154 +7,211 @@ from scipy import misc
 import os
 from cell_classifier_tf_cnn import conv_net
 
-# Suppress sub-optimal speed warnings
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-
 
 def distance(x1, y1, x2, y2):
     return ((x1 - x2)**2 + (y1 - y2)**2)**0.5
 
 
-# Load image, make a copy for final output, and convert image to grayscale
-image_path = 'images/test_array_3_hi_res.png'
-original_image = cv2.imread(image_path)
-grayscale_image = cv2.cvtColor(original_image, cv2.COLOR_BGR2GRAY)
+def read_image(image_path):
+    original = cv2.imread(image_path)
+    grayscale = cv2.cvtColor(original, cv2.COLOR_BGR2GRAY)
+    grayscale_4x = misc.imresize(grayscale, (1792, 1792), interp='lanczos')
+    original_4x = misc.imresize(original, (1792, 1792), interp='lanczos')
 
-original_image_4x = misc.imresize(original_image, (1792, 1792), interp='lanczos')
-grayscale_image_4x = misc.imresize(grayscale_image, (1792, 1792), interp='lanczos')
-
-output = original_image_4x.copy()
-
-tf.reset_default_graph()
-
-# Convolutional filter depths:
-depths = [32, 64, 128]
-
-# Weight and bias variables
-weights = {
-    'wc1': tf.Variable(tf.random_normal(shape=[3, 3, 1, depths[0]])),
-    'wc2': tf.Variable(tf.random_normal(shape=[3, 3, depths[0], depths[1]])),
-    'wd1': tf.Variable(tf.random_normal(shape=[9 * depths[1], depths[2]])),
-    'out': tf.Variable(tf.random_normal(shape=[depths[2], 1]))}
-
-biases = {
-    'bc1': tf.Variable(tf.zeros([depths[0]])),
-    'bc2': tf.Variable(tf.zeros([depths[1]])),
-    'bd1': tf.Variable(tf.zeros([depths[2]])),
-    'out': tf.Variable(tf.zeros([1]))}
-
-# Placeholders
-x_input = tf.placeholder(tf.float32, shape=[None, 9, 9, 1])
-y_ = tf.placeholder(tf.float32, shape=[None, 1])
-y_pred = conv_net(x_input, weights, biases, 1.0)
+    return grayscale, grayscale_4x, original_4x
 
 
-
-# Add ops to save and restore all the variables.
-saver = tf.train.Saver()
-
-# Later, launch the model, use the saver to restore variables from disk, and
-# do some work with the model.
-with tf.Session() as sess:
-    # Restore variables from disk.
-    saver.restore(sess, "classifier_data/tf_cnn_classifier/tf_cnn_model.ckpt")
-    print("TensorFlow model restored.")
-
+def find_and_process_droplets(image_4x):
     # Perform circle detection for droplets
-    droplets = cv2.HoughCircles(grayscale_image_4x, cv2.HOUGH_GRADIENT, 1, 12, param1=120, param2=20,
-                                minRadius=65, maxRadius=88)
+    ds = cv2.HoughCircles(image_4x, cv2.HOUGH_GRADIENT, 1, 12, param1=120, param2=20,
+                          minRadius=65, maxRadius=88)
 
-    # Use TF classifier and a sliding window to detect droplets
-    cell_ps_lookup = np.zeros(shape=(448, 448))
-    cell_ps_list = []
-    for x in range(4, 444):
-        for y in range(4, 444):
-            cell_img = grayscale_image[y - 4: y + 5, x - 4: x + 5].astype(float)
-            scaled_img = cell_img / 256.0
-            reshaped_img = scaled_img.reshape(1, 9, 9, 1)
-            cell_likelihood = sess.run(y_pred, feed_dict={x_input: reshaped_img})
-            cell_ps_lookup[y, x] = cell_likelihood
-            cell_ps_list.append((cell_likelihood, x, y))
+    if ds is None:
+        raise ValueError('No droplets detected with current image and parameters')
 
-    cell_ps_list.sort()
-    cell_ps_list.reverse()
+    ds = np.round(ds[0, :]).astype('int')
 
-    cells = []
-
-    for p, x, y in cell_ps_list:
-        if p < 0.99:
-            break
-        if any(p < cell_ps_lookup[y + dy, x + dx] for dx in (-1, 0, 1) for dy in (-1, 0, 1)):
-            continue
-        if any(distance(c[0], c[1], x, y) < 2.5 for c in cells):
-            continue
-        cells.append((x, y))
-
-    if droplets is not None:
-        droplets = np.round(droplets[0, :]).astype('int')
-
-    valid_droplets = []
-    droplet_clusters = []
-    cluster_lookup = {}
+    valid_ds = []
+    d_clusters = []
+    c_lookup = {}
 
     # This will group together together the droplet circles, since each droplet is made of multiple circles.
-    for x, y, r in droplets:
+    for x, y, r in ds:
 
-        for i, dc in enumerate(droplet_clusters):
-            if any(distance(x, y, x2, y2) < 50 for x2, y2, _ in dc):      # Are any droplet circles more than 50 away?
-                cluster_lookup[(x, y, r)] = i
-                droplet_clusters[i].append((x, y, r))
+        for i, d_cluster in enumerate(d_clusters):
+            if any(distance(x, y, x2, y2) < 50 for x2, y2, _ in d_cluster):
+                c_lookup[(x, y, r)] = i
+                d_clusters[i].append((x, y, r))
                 break
         else:
-            droplet_clusters.append([(x, y, r)])
+            d_clusters.append([(x, y, r)])
 
-    dc_edge = 2
-    droplet_clusters = [dc for dc in droplet_clusters if
-                        all((dc_edge + r < x < 1792 - dc_edge - r and dc_edge + r < y < 1792 - dc_edge - r)
-                            for (x, y, r) in dc)]
+    # Edge padding for droplet validity
+    edge = 2
 
-    for i, dc in enumerate(droplet_clusters):
-        for (x, y, r) in dc:
-            valid_droplets.append((x, y, r))
-            cluster_lookup[(x, y, r)] = i
+    d_clusters = [dc for dc in d_clusters if all((edge + r < x < 1792 - edge - r and edge + r < y < 1792 - edge - r)
+                                   for (x, y, r) in dc)]
 
-    cluster_count = [0] * len(droplet_clusters)
-    cluster_cells = [[] for _ in range(len(droplet_clusters))]
+    for i, d_cluster in enumerate(d_clusters):
+        for (x, y, r) in d_cluster:
+            valid_ds.append((x, y, r))
+            c_lookup[(x, y, r)] = i
 
-    cell_counter = 0
+    return {'droplets': ds, 'valid_droplets': valid_ds, 'droplet_clusters': d_clusters, 'cluster_lookup': c_lookup}
+
+
+def find_cells(image):
+    weights, biases, x_input, y_actual, y_pred = tf_model_setup()
+
+    # Add ops to save and restore all the variables.
+    saver = tf.train.Saver()
+
+    with tf.Session() as sess:
+        # Restore variables from disk.
+        saver.restore(sess, "classifier_data/tf_cnn_classifier/tf_cnn_model.ckpt")
+        print("TensorFlow model restored.")
+
+        # Use TF classifier and a sliding window to detect droplets
+
+        img_tensor = []
+        for x in range(4, 444):
+            for y in range(4, 444):
+                cell_img = image[y - 4: y + 5, x - 4: x + 5].astype(float)
+                scaled_img = cell_img / 256.0
+                reshaped_img = scaled_img.reshape(9, 9, 1)
+                img_tensor.append(reshaped_img)
+
+        tf_model_output = sess.run(y_pred, feed_dict={x_input: np.array(img_tensor)}).reshape(440, 440, 1)
+
+        c_probs_lookup = np.zeros(shape=(448, 448))
+
+        c_probs = []
+
+        for x in range(440):
+            for y in range(440):
+                p = tf_model_output[x, y, 0]
+                c_probs.append((p, x + 4, y + 4))
+                c_probs_lookup[y + 4, x + 4] = p
+
+        c_probs.sort()
+        c_probs.reverse()
+
+        cs = []
+
+        for p, x, y in c_probs:
+            if p < 0.99:
+                break
+            if any(p < c_probs_lookup[y + dy, x + dx] for dx in (-1, 0, 1) for dy in (-1, 0, 1)):
+                continue
+            if any(distance(c[0], c[1], x, y) < 2.5 for c in cs):
+                continue
+            cs.append((x, y))
+
+        return cs
+
+
+def tf_model_setup():
+    # global weights, biases, x_input, y_, y_pred, saver
+
+    tf.reset_default_graph()
+
+    # Convolutional filter depths:
+    depths = [32, 64, 128]
+
+    # Weight and bias variables (to be filled with values when model loads)
+    ws = {
+        'wc1': tf.Variable(tf.zeros(shape=[3, 3, 1, depths[0]])),
+        'wc2': tf.Variable(tf.zeros(shape=[3, 3, depths[0], depths[1]])),
+        'wd1': tf.Variable(tf.zeros(shape=[9 * depths[1], depths[2]])),
+        'out': tf.Variable(tf.zeros(shape=[depths[2], 1]))}
+
+    bs = {
+        'bc1': tf.Variable(tf.zeros([depths[0]])),
+        'bc2': tf.Variable(tf.zeros([depths[1]])),
+        'bd1': tf.Variable(tf.zeros([depths[2]])),
+        'out': tf.Variable(tf.zeros([1]))}
+
+    # Placeholders
+    x_in = tf.placeholder(tf.float32, shape=[None, 9, 9, 1])
+    y_ = tf.placeholder(tf.float32, shape=[None, 1])
+    y_hat = conv_net(x_in, ws, bs, 1.0)
+
+    return ws, bs, x_in, y_, y_hat
+
+
+def group_cells_by_cluster(cs, d_data):
+    ds = d_data['droplets']
+    valid_ds = d_data['valid_droplets']
+    d_clusters = d_data['droplet_clusters']
+    cluster_lookup = d_data['cluster_lookup']
+
+    cs_by_cluster = [[] for _ in range(len(d_clusters))]
 
     # For each cell, we want to check if it is valid, and if so, link it to its containing droplet cluster
-    for x, y in cells:
-        closest_droplet_circle = tuple(min(droplets, key=lambda z: distance(4 * x, 4 * y, z[0], z[1])))
-        if closest_droplet_circle not in valid_droplets:
+    for x, y in cs:
+        closest_d = tuple(min(ds, key=lambda z: distance(4 * x, 4 * y, z[0], z[1])))
+        if closest_d not in valid_ds:
             continue
-        i = cluster_lookup[closest_droplet_circle]
-        if any(distance(4 * x, 4 * y, d_x, d_y) < d_r + 12 for d_x, d_y, d_r in droplet_clusters[i]):
+        i = cluster_lookup[closest_d]
+        if any(distance(4 * x, 4 * y, d_x, d_y) < d_r + 12 for d_x, d_y, d_r in d_clusters[i]):
             # Cell is enclosed by cluster i
-            cluster_cells[i].append((x, y))
+            cs_by_cluster[i].append((x, y))
+
+    return cs_by_cluster
+
+
+def write_output(orig_img_4x, d_data, cluster_cs, display=True, show_droplets=False,
+                 save=False, save_path='images/output.png'):
+
+    """
+    Displays and/or writes cell and droplet info to disk.
+    """
+
+    output = orig_img_4x.copy()
 
     # Go through each droplet cluster and print the droplet boundaries (commented out), the cells, and the count
-    for i, dc in enumerate(droplet_clusters):
+    for i, dc in enumerate(d_data['droplet_clusters']):
         color = (np.random.randint(0, 256), np.random.randint(0, 256), np.random.randint(0, 256))
 
-        # Printing circle boundaries
-        # for x, y, r in dc:
-        #     cv2.circle(output, (x, y), r, color, 1)
+        if show_droplets:
+            # Printing circle boundaries
+            for x, y, r in dc:
+                cv2.circle(output, (x, y), r, color, 1)
 
-        for x, y in cluster_cells[i]:
+        for x, y in cluster_cs[i]:
             cv2.circle(output, (4 * x, 4 * y), 10, color, 1)
 
         avg_x = int(sum(x for x, _, _ in dc) / len(dc))
         avg_y = int(sum(y for _, y, _ in dc) / len(dc))
-        cv2.putText(output, str(len(cluster_cells[i])), (avg_x - 15, avg_y + 15), fontFace=0, fontScale=2.0,
+        cv2.putText(output, str(len(cluster_cs[i])), (avg_x - 15, avg_y + 15), fontFace=0, fontScale=2.0,
                     color=color, thickness=4)
 
-    # Combine original image analyzed output on one side
-    image_and_output = np.hstack([original_image_4x, output])
+    # Combine original image and analyzed output side by side
+    image_and_output = np.hstack([orig_img_4x, output])
 
-    # Show the original and output image side by side
-    cv2.imshow("output", image_and_output)
-    cv2.waitKey(0)
+    if display:
+        # Show the original and output image side by side
+        cv2.imshow("output", image_and_output)
+        cv2.waitKey(0)
 
-    # Save the original and output image
-    cv2.imwrite('images/output.png', image_and_output)
+    if save:
+        cv2.imwrite(save_path, image_and_output)
+
+
+if __name__ == '__main__':
+
+    # Suppress sub-optimal speed warnings
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+    
+    np.random.seed(0)   # Random seed for consistent color display on multiple runs
+
+    grayscale_image, grayscale_image_4x, original_image_4x = read_image('images/test_array_3_hi_res.png')
+
+    droplet_data = find_and_process_droplets(grayscale_image_4x)
+
+    cells = find_cells(grayscale_image)
+
+    cells_by_cluster = group_cells_by_cluster(cells, droplet_data)
+
+    write_output(original_image_4x, droplet_data, cells_by_cluster, save=True)
+
