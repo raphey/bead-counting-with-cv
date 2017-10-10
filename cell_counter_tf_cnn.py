@@ -8,11 +8,11 @@ import os
 from cell_classifier_tf_cnn import conv_net
 
 
-def distance(x1, y1, x2, y2):
-    return ((x1 - x2)**2 + (y1 - y2)**2)**0.5
-
-
 def read_image(image_path):
+    """
+    Reads an image from file and returns a grayscale version, an interpolated 4x
+    grayscale version, and an interpolated 4x original version.
+    """
     original = cv2.imread(image_path)
     grayscale = cv2.cvtColor(original, cv2.COLOR_BGR2GRAY)
     grayscale_4x = misc.imresize(grayscale, (1792, 1792), interp='lanczos')
@@ -22,9 +22,29 @@ def read_image(image_path):
 
 
 def find_and_process_droplets(image_4x):
+    """
+    Given a grayscale 1792x1792 image, returns a data structure with detected droplets.
+
+    The process is:
+    1) Detect droplet-sized circles using OpenCVs HoughCircles, with multiple circles
+       per actual droplet so as to match the irregular shapes better
+    2) Group the circles by proximity; these are droplet clusters.
+    3) Throw out droplet clusters that are too close to the edge
+
+    The data structure returned has the following components:
+
+    - droplets: An (x, y, r) list of all droplet-sized circles detected
+    - valid_droplets: A smaller (x, y, r) list of of those that aren't too
+      close to the edge or have associations with circles that are too close
+      to the edge.
+    - droplet_clusters: A list of lists of (x, y, r) circles, grouped by
+      proximity
+    - cluster_lookup: A dictionary in which each (x, y, r) key contains the
+      the cluster index position in droplet_clusters for a given droplet.
+    """
     # Perform circle detection for droplets
-    ds = cv2.HoughCircles(image_4x, cv2.HOUGH_GRADIENT, 1, 12, param1=120, param2=20,
-                          minRadius=65, maxRadius=88)
+    ds = cv2.HoughCircles(image_4x, cv2.HOUGH_GRADIENT, 1, minDist=12, param1=120,
+                          param2=20, minRadius=65, maxRadius=88)
 
     if ds is None:
         raise ValueError('No droplets detected with current image and parameters')
@@ -35,7 +55,7 @@ def find_and_process_droplets(image_4x):
     d_clusters = []
     c_lookup = {}
 
-    # This will group together together the droplet circles, since each droplet is made of multiple circles.
+    # Group together together droplet circles, since each droplet is made of multiple circles.
     for x, y, r in ds:
 
         for i, d_cluster in enumerate(d_clusters):
@@ -46,33 +66,55 @@ def find_and_process_droplets(image_4x):
         else:
             d_clusters.append([(x, y, r)])
 
-    # Edge padding for droplet validity
+    # Avoid using droplets that are within a certain number of pixels from the edge
     edge = 2
 
-    d_clusters = [dc for dc in d_clusters if all((edge + r < x < 1792 - edge - r and edge + r < y < 1792 - edge - r)
-                                   for (x, y, r) in dc)]
+    # Filter down to only clusters that contain all valid droplets
+    d_clusters = [dc for dc in d_clusters if all((edge + r < x < 1792 - edge - r and
+                                                  edge + r < y < 1792 - edge - r)
+                                                 for (x, y, r) in dc)]
 
+    # Make list of valid droplets and look-up dictionary for cluster assignment
     for i, d_cluster in enumerate(d_clusters):
         for (x, y, r) in d_cluster:
             valid_ds.append((x, y, r))
             c_lookup[(x, y, r)] = i
 
-    return {'droplets': ds, 'valid_droplets': valid_ds, 'droplet_clusters': d_clusters, 'cluster_lookup': c_lookup}
+    return {'droplets': ds, 'valid_droplets': valid_ds,
+            'droplet_clusters': d_clusters, 'cluster_lookup': c_lookup}
+
+
+def distance(x1, y1, x2, y2):
+    return ((x1 - x2)**2 + (y1 - y2)**2)**0.5
 
 
 def find_cells(image):
-    weights, biases, x_input, y_actual, y_pred = tf_model_setup()
+    """
+    Given a grayscale 448x448 image, uses a trained CNN to get a list of cells.
 
-    # Add ops to save and restore all the variables.
+    The process is:
+    1) Pass a 9x9 window across all image locations, minus some padding, and
+       for each one, find an associated probability of it being a cell.
+    2) Go through the entire list of probabilities in decreasing order. Mark
+       a cell as found if it has probability above a certain cutoff, it is a
+       local maximum of probability, and it is a minimum distance away from
+       other cells that have already been found
+
+    Returns a list of detected cells in (x, y) form. Note that these coordinates
+    are scaled differently than the droplet detection coordinates.
+    """
+
+    # Create variables for CNN model import
+    weights, biases, x_input, y_actual, y_pred = tf_model_setup()
     saver = tf.train.Saver()
 
     with tf.Session() as sess:
+
         # Restore variables from disk.
         saver.restore(sess, "classifier_data/tf_cnn_classifier/tf_cnn_model.ckpt")
         print("TensorFlow model restored.")
 
         # Use TF classifier and a sliding window to detect droplets
-
         img_tensor = []
         for x in range(4, 444):
             for y in range(4, 444):
@@ -96,8 +138,8 @@ def find_cells(image):
         c_probs.sort()
         c_probs.reverse()
 
+        # Grab valid cells
         cs = []
-
         for p, x, y in c_probs:
             if p < 0.99:
                 break
@@ -111,7 +153,9 @@ def find_cells(image):
 
 
 def tf_model_setup():
-    # global weights, biases, x_input, y_, y_pred, saver
+    """
+    Prepare variables for import of trained TensorFlow classifier
+    """
 
     tf.reset_default_graph()
 
@@ -119,27 +163,33 @@ def tf_model_setup():
     depths = [32, 64, 128]
 
     # Weight and bias variables (to be filled with values when model loads)
-    ws = {
+    weights = {
         'wc1': tf.Variable(tf.zeros(shape=[3, 3, 1, depths[0]])),
         'wc2': tf.Variable(tf.zeros(shape=[3, 3, depths[0], depths[1]])),
         'wd1': tf.Variable(tf.zeros(shape=[9 * depths[1], depths[2]])),
         'out': tf.Variable(tf.zeros(shape=[depths[2], 1]))}
 
-    bs = {
+    biases = {
         'bc1': tf.Variable(tf.zeros([depths[0]])),
         'bc2': tf.Variable(tf.zeros([depths[1]])),
         'bd1': tf.Variable(tf.zeros([depths[2]])),
         'out': tf.Variable(tf.zeros([1]))}
 
     # Placeholders
-    x_in = tf.placeholder(tf.float32, shape=[None, 9, 9, 1])
-    y_ = tf.placeholder(tf.float32, shape=[None, 1])
-    y_hat = conv_net(x_in, ws, bs, 1.0)
+    x_input = tf.placeholder(tf.float32, shape=[None, 9, 9, 1])
+    y_actual = tf.placeholder(tf.float32, shape=[None, 1])
+    y_pred = conv_net(x_input, weights, biases, 1.0)
 
-    return ws, bs, x_in, y_, y_hat
+    return weights, biases, x_input, y_actual, y_pred
 
 
 def group_cells_by_cluster(cs, d_data):
+    """
+    Given a list of detected cells and droplet data, returns a list of cells grouped
+    by the cluster they belong to, if they belong to a valid cluster.
+    The assumption is that a cell belongs to the cluster of whatever cluster circle
+    has the closest center, as long as it is contained by some circle in that cluster.
+    """
     ds = d_data['droplets']
     valid_ds = d_data['valid_droplets']
     d_clusters = d_data['droplet_clusters']
@@ -147,13 +197,16 @@ def group_cells_by_cluster(cs, d_data):
 
     cs_by_cluster = [[] for _ in range(len(d_clusters))]
 
-    # For each cell, we want to check if it is valid, and if so, link it to its containing droplet cluster
+    # Wiggle room for cell containment--can lead to some false positives on the edges
+    edge_error = 12
+
+    # For each cell, check if valid, and if so, link it to its containing droplet cluster
     for x, y in cs:
         closest_d = tuple(min(ds, key=lambda z: distance(4 * x, 4 * y, z[0], z[1])))
         if closest_d not in valid_ds:
             continue
         i = cluster_lookup[closest_d]
-        if any(distance(4 * x, 4 * y, d_x, d_y) < d_r + 12 for d_x, d_y, d_r in d_clusters[i]):
+        if any(distance(4 * x, 4 * y, d_x, d_y) < d_r + edge_error for d_x, d_y, d_r in d_clusters[i]):
             # Cell is enclosed by cluster i
             cs_by_cluster[i].append((x, y))
 
@@ -200,10 +253,11 @@ def write_output(orig_img_4x, d_data, cluster_cs, display=True, show_droplets=Fa
 
 if __name__ == '__main__':
 
-    # Suppress sub-optimal speed warnings
+    # Suppress sub-optimal speed warnings from TensorFlow
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-    
-    np.random.seed(0)   # Random seed for consistent color display on multiple runs
+
+    # Random seed for consistent color display on multiple runs
+    np.random.seed(0)
 
     grayscale_image, grayscale_image_4x, original_image_4x = read_image('images/test_array_3_hi_res.png')
 
@@ -214,4 +268,3 @@ if __name__ == '__main__':
     cells_by_cluster = group_cells_by_cluster(cells, droplet_data)
 
     write_output(original_image_4x, droplet_data, cells_by_cluster, save=True)
-
