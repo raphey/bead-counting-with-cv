@@ -13,7 +13,7 @@ Here's how I've approached the various sub-problems:
 
 1. Detecting droplets. Ordinary circle-detection with OpenCV got most of the way there, but there were some complications regarding the non-circular shapes that come up when the packing structure isn't clean. I ended up defining each droplet with multiple overlapping circles of slightly varying radius--the outermost circle boundaries define the droplets well, and it's still easy to detect when a cell is inside a droplet.
 
-2. Detecting cells. This is the tough part that has the greatest potential for improvement. Right now I'm using a two step process--first, I use circle detection on smaller circles to get all the cells, plus a lot of false positives. I sorted those into cells and non-cells to get training data, and then I used a neural network with one hidden layer. The network distinguishes my test set with 90% accuracy for positive assignments, and 99% accuracy for negative assignments. This could probably be improved by using a CNN, but the performance bottleneck is probably the not-so-great test data. I also think there is probably a fundamentally different approach to recognition of so many equally-sized images.
+2. Detecting cells. I collected about 700 examples of centered 9x9 images of cells, I trained a CNN and looked at the false negatives, then I refined/expanded the data and trained another CNN with 3500 positive examples. Using the model, I pass a 9x9 window across the image and select the likely cells.
 
 3. Image processing. My main pre-processing step was to scale the images to be larger--OpenCV restricts some parameters to integer values (minDist, minRadius, maxRadius), and this lets me get around that. All of my other processing efforts seemed to have very little impact. The image below looks like it would be much easier to work with, but I found that my cell recognition performed no better--maybe the canny edge detection is already accomplishing most of what I was trying to do by hand with pre-processing. 
 
@@ -24,9 +24,10 @@ Here's how I've approached the various sub-problems:
 
 ### To-do
 
-- Try to improve recognition > 99% for positive ID, starting by examining incorrect guesses--are the images poorly centered?
-- Modify cell counter to work at a different image scale, or modify it to work at two different scales (currently uses 4x image--better if no image enlargement was needed).
-- Decide if cell detection should be independent of small circle detection with many false positives, or if it should move a window across the entire image.
+- Speed things up by feeding the windows in as one shape (?, 9, 9, 1) tensor, rather than a series of (1, 9, 9, 1) tensors
+- Refactor to make the distinct parts of the cell counter easier to follow and manipulate.
+- Think about ways to improve the cell detection--how much would it help to have many more very carefully centered samples? What other ways are there to improve detection?
+- Remove code in cell counter to check for more likely adjacent windows--this no longer does anything since the cells are verified in order of decreasing likelihood and required to be separated by a minimum distance.
 
 
 
