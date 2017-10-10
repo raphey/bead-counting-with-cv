@@ -6,6 +6,8 @@ import tensorflow as tf
 from scipy import misc
 import os
 from cell_classifier_tf_cnn import conv_net
+import csv
+import glob
 
 
 def read_image(image_path):
@@ -112,7 +114,6 @@ def find_cells(image):
 
         # Restore variables from disk.
         saver.restore(sess, "classifier_data/tf_cnn_classifier/tf_cnn_model.ckpt")
-        print("TensorFlow model restored.")
 
         # Use TF classifier and a sliding window to detect droplets
         img_tensor = []
@@ -148,6 +149,85 @@ def find_cells(image):
             if any(distance(c[0], c[1], 4 * x, 4 * y) < 10 for c in cs):
                 continue
             cs.append((4 * x, 4 * y))
+
+        return cs
+
+
+def hi_res_find_cells(image_4x):
+    """
+    Higher resolution cell detector.
+    """
+
+    # Create variables for CNN model import
+    weights, biases, x_input, y_actual, y_pred = tf_model_setup()
+    saver = tf.train.Saver()
+
+    with tf.Session() as sess:
+
+        # Restore variables from disk.
+        saver.restore(sess, "classifier_data/tf_cnn_classifier/tf_cnn_model.ckpt")
+
+        downsampled_imgs = [[None] * 4 for _ in range(4)]
+
+        for x in range(4):
+            for y in range(4):
+                shift_img = misc.imresize(image_4x[y: y - 4, x: x - 4], (447, 447))
+                shift_img = shift_img.astype(float) / 256.0
+                shift_img = shift_img.reshape(447, 447, 1)
+                downsampled_imgs[y][x] = shift_img
+
+        img_list = []
+        for x in range(19, 1792 - 20):
+            for y in range(19, 1792 - 20):
+
+                shift_x = x % 4
+                shift_y = y % 4
+                scaled_x = x // 4
+                scaled_y = y // 4
+
+                cell_image = downsampled_imgs[shift_y][shift_x][scaled_y - 4: scaled_y + 5, scaled_x - 4: scaled_x + 5]
+
+                img_list.append(cell_image)
+
+        img_tensor = np.array(img_list)
+
+        print("Image tensor formed.")
+
+        batch_size = 200000
+
+        tf_model_output = np.empty((0, 1))
+
+        for i in range(0, len(img_tensor), batch_size):
+            batch_output = sess.run(y_pred, feed_dict={x_input: np.array(img_tensor[i:i + batch_size])})
+            tf_model_output = np.vstack((tf_model_output, batch_output))
+
+        print("Probabilities computed.")
+
+        tf_model_output = tf_model_output.reshape(1753, 1753, 1)
+
+        c_probs_lookup = np.zeros(shape=(1792, 1792))
+
+        c_probs = []
+
+        for x in range(1753):
+            for y in range(1753):
+                p = tf_model_output[x, y, 0]
+                c_probs.append((p, x + 19, y + 19))
+                c_probs_lookup[y + 19, x + 19] = p
+
+        c_probs.sort()
+        c_probs.reverse()
+
+        # Grab valid cells
+        cs = []
+        for p, x, y in c_probs:
+            if p < 0.99:
+                break
+            if any(p < c_probs_lookup[y + dy, x + dx] for dx in (-1, 0, 1) for dy in (-1, 0, 1)):
+                continue
+            if any(distance(c[0], c[1], x, y) < 10 for c in cs):
+                continue
+            cs.append((x, y))
 
         return cs
 
@@ -213,9 +293,8 @@ def group_cells_by_cluster(cs, d_data):
     return cs_by_cluster
 
 
-def write_output(orig_img_4x, d_data, cluster_cs, display=True, show_droplets=False,
-                 save=False, save_path='images/output.png'):
-
+def write_image_output(orig_img_4x, d_data, cluster_cs, display_image=True, show_droplets=False,
+                       save_image=False, save_path='images/output.png'):
     """
     Displays and/or writes cell and droplet info to disk.
     """
@@ -242,13 +321,76 @@ def write_output(orig_img_4x, d_data, cluster_cs, display=True, show_droplets=Fa
     # Combine original image and analyzed output side by side
     image_and_output = np.hstack([orig_img_4x, output])
 
-    if display:
+    if display_image:
         # Show the original and output image side by side
         cv2.imshow("output", image_and_output)
         cv2.waitKey(0)
 
-    if save:
+    if save_image:
         cv2.imwrite(save_path, image_and_output)
+
+
+def get_frequencies(cs_by_cluster):
+    """
+
+    """
+    cell_counts = [len(cs) for cs in cs_by_cluster]
+    cell_counts.sort()
+    max_count = cell_counts[-1]
+    fs = [0] * (max_count + 1)
+    for count in cell_counts:
+        fs[count] += 1
+    return list(zip(range(max_count + 1), fs))
+
+
+def analyze_image(img_path, hi_res=False, display_image=False, show_droplets=False,
+                  save_image=False, save_frequencies=True):
+    """
+    Given an image path, detects droplets, detects cells, associates cells with
+    droplets, saves/displays image, saves/displays frequencies (cells per droplet).
+    """
+
+    image_name = os.path.basename(os.path.normpath(img_path))
+    print('-' * 20)
+    print("Analyzing {}...".format(img_path))
+
+    grayscale_image, grayscale_image_4x, original_image_4x = read_image(img_path)
+
+    droplet_data = find_and_process_droplets(grayscale_image_4x)
+
+    if hi_res:
+        cells = hi_res_find_cells(grayscale_image_4x)
+    else:
+        cells = find_cells(grayscale_image)
+
+    cells_by_cluster = group_cells_by_cluster(cells, droplet_data)
+
+    write_image_output(original_image_4x, droplet_data, cells_by_cluster,
+                       display_image=display_image, show_droplets=show_droplets,
+                       save_image=save_image)
+
+    frequencies = get_frequencies(cells_by_cluster)
+
+    print("Cell per droplet frequencies for {}:".format(image_name))
+
+    for count, freq in frequencies:
+        print("{}:\t{}".format(count, freq))
+
+    if save_frequencies:
+        if hi_res:
+            freq_save_path = 'frequency_output/' + image_name[:-4] + '_hi_res.csv'
+        else:
+            freq_save_path = 'frequency_output/' + image_name[:-4] + '.csv'
+        with open(freq_save_path, 'w') as out:
+            csv_out = csv.writer(out)
+            csv_out.writerow(['Count', 'Frequency'])
+            for row in frequencies:
+                csv_out.writerow(row)
+
+
+def analyze_directory(directory_path, hi_res=False):
+    for image_path in glob.glob(directory_path + '/*.png'):
+        analyze_image(image_path, hi_res=hi_res)
 
 
 if __name__ == '__main__':
@@ -259,12 +401,6 @@ if __name__ == '__main__':
     # Random seed for consistent color display on multiple runs
     np.random.seed(0)
 
-    grayscale_image, grayscale_image_4x, original_image_4x = read_image('images/test_array_3_hi_res.png')
+    # analyze_image(img_path='images/test_array_2.png')
 
-    droplet_data = find_and_process_droplets(grayscale_image_4x)
-
-    cells = find_cells(grayscale_image)
-
-    cells_by_cluster = group_cells_by_cluster(cells, droplet_data)
-
-    write_output(original_image_4x, droplet_data, cells_by_cluster, save=True)
+    analyze_directory('images/counter_validation_images', hi_res=True)
