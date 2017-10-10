@@ -1,17 +1,14 @@
 __author__ = 'raphey'
 
-import numpy as np
-import cv2
-import tensorflow as tf
-from scipy import misc
-import os
-from cell_classifier_tf_cnn import conv_net
+
 from cell_counter_tf_cnn import *
 
+import time
 
+# Overwrites function being imported from cell_counter_tf_cnn
 def find_cells(image_4x):
     """
-
+    Higher resolution cell detector.
     """
 
     # Create variables for CNN model import
@@ -24,27 +21,50 @@ def find_cells(image_4x):
         saver.restore(sess, "classifier_data/tf_cnn_classifier/tf_cnn_model.ckpt")
         print("TensorFlow model restored.")
 
-        img_tensor = []
-        for x in range(19, 1792 - 19):
-            for y in range(19, 1792 - 19):
-                big_cell_img = image_4x[y - 18: y + 18, x - 18: x + 18]
-                cell_img = misc.imresize(big_cell_img, (9, 9))
-                scaled_img = cell_img.astype(float) / 256.0
-                reshaped_img = scaled_img.reshape(9, 9, 1)
-                img_tensor.append(reshaped_img)
+        downsampled_imgs = [[None] * 4 for _ in range(4)]
+        for x in range(4):
+            for y in range(4):
+                shift_img = misc.imresize(image_4x[y: y - 4, x: x - 4], (447, 447))
+                shift_img = shift_img.astype(float) / 256.0
+                shift_img = shift_img.reshape(447, 447, 1)
+                downsampled_imgs[y][x] = shift_img
+
+        img_list = []
+        for x in range(19, 1792 - 20):
+            for y in range(19, 1792 - 20):
+
+                shift_x = x % 4
+                shift_y = y % 4
+                scaled_x = x // 4
+                scaled_y = y // 4
+
+                cell_image = downsampled_imgs[shift_y][shift_x][scaled_y - 4: scaled_y + 5, scaled_x - 4: scaled_x + 5]
+
+                img_list.append(cell_image)
+
+        img_tensor = np.array(img_list)
 
         print("Image tensor formed.")
 
-        tf_model_output = sess.run(y_pred, feed_dict={x_input: np.array(img_tensor)}).reshape(1754, 1754, 1)
+        batch_size = 200000
+
+        tf_model_output = np.empty((0, 1))
+
+        for i in range(0, len(img_tensor), batch_size):
+            print(i)
+            batch_output = sess.run(y_pred, feed_dict={x_input: np.array(img_tensor[i:i + batch_size])})
+            tf_model_output = np.vstack((tf_model_output, batch_output))
 
         print("Probabilities computed.")
+
+        tf_model_output = tf_model_output.reshape(1753, 1753, 1)
 
         c_probs_lookup = np.zeros(shape=(1792, 1792))
 
         c_probs = []
 
-        for x in range(1754):
-            for y in range(1754):
+        for x in range(1753):
+            for y in range(1753):
                 p = tf_model_output[x, y, 0]
                 c_probs.append((p, x + 19, y + 19))
                 c_probs_lookup[y + 19, x + 19] = p
@@ -67,7 +87,6 @@ def find_cells(image_4x):
 
 
 if __name__ == '__main__':
-
     # Suppress sub-optimal speed warnings from TensorFlow
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -82,4 +101,5 @@ if __name__ == '__main__':
 
     cells_by_cluster = group_cells_by_cluster(cells, droplet_data)
 
-    write_output(original_image_4x, droplet_data, cells_by_cluster, save=True)
+    write_output(original_image_4x, droplet_data, cells_by_cluster, display=False, save=True)
+
