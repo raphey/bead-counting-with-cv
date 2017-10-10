@@ -101,7 +101,7 @@ def find_cells(image):
        other cells that have already been found
 
     Returns a list of detected cells in (x, y) form. Note that these coordinates
-    are scaled differently than the droplet detection coordinates.
+    are scaled up 4x from the image being passed in
     """
 
     # Create variables for CNN model import
@@ -145,9 +145,9 @@ def find_cells(image):
                 break
             if any(p < c_probs_lookup[y + dy, x + dx] for dx in (-1, 0, 1) for dy in (-1, 0, 1)):
                 continue
-            if any(distance(c[0], c[1], x, y) < 2.5 for c in cs):
+            if any(distance(c[0], c[1], 4 * x, 4 * y) < 10 for c in cs):
                 continue
-            cs.append((x, y))
+            cs.append((4 * x, 4 * y))
 
         return cs
 
@@ -202,11 +202,11 @@ def group_cells_by_cluster(cs, d_data):
 
     # For each cell, check if valid, and if so, link it to its containing droplet cluster
     for x, y in cs:
-        closest_d = tuple(min(ds, key=lambda z: distance(4 * x, 4 * y, z[0], z[1])))
+        closest_d = tuple(min(ds, key=lambda z: distance(x, y, z[0], z[1])))
         if closest_d not in valid_ds:
             continue
         i = cluster_lookup[closest_d]
-        if any(distance(4 * x, 4 * y, d_x, d_y) < d_r + edge_error for d_x, d_y, d_r in d_clusters[i]):
+        if any(distance(x, y, d_x, d_y) < d_r + edge_error for d_x, d_y, d_r in d_clusters[i]):
             # Cell is enclosed by cluster i
             cs_by_cluster[i].append((x, y))
 
@@ -232,7 +232,7 @@ def write_output(orig_img_4x, d_data, cluster_cs, display=True, show_droplets=Fa
                 cv2.circle(output, (x, y), r, color, 1)
 
         for x, y in cluster_cs[i]:
-            cv2.circle(output, (4 * x, 4 * y), 10, color, 1)
+            cv2.circle(output, (x, y), 10, color, 1)
 
         avg_x = int(sum(x for x, _, _ in dc) / len(dc))
         avg_y = int(sum(y for _, y, _ in dc) / len(dc))
