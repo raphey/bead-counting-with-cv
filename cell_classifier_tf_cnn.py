@@ -158,30 +158,33 @@ def find_and_save_mistakes(image_directory, correct_label, save_directory):
                 print("Calculated likelihood:", cell_likelihood[0][0])
                 cv2.imwrite(save_directory + '/' + img_name, img)
 
-tf.reset_default_graph()
 
-# Convolutional filter depths:
-depths = [32, 64, 128]
+if __name__ == '__main__':
 
-# Weight initialization standard deviations
-std_devs = [2.0 / (9 * depths[0]) ** 0.5, 2.0 / (9 * depths[0] * depths[1]) ** 0.5,
-           2.0 / (9 * depths[1] * depths[2]) ** 0.5, 1.0 / (depths[2]) ** 0.5]
+    tf.reset_default_graph()
 
-# Weight and bias variables
-weights = {
-    'wc1': tf.Variable(tf.random_normal(shape=[3, 3, 1, depths[0]], stddev=std_devs[0])),
-    'wc2': tf.Variable(tf.random_normal(shape=[3, 3, depths[0], depths[1]], stddev=std_devs[1])),
-    'wd1': tf.Variable(tf.random_normal(shape=[9 * depths[1], depths[2]], stddev=std_devs[2])),
-    'out': tf.Variable(tf.random_normal(shape=[depths[2], 1], stddev=std_devs[3]))}
+    # Convolutional filter depths:
+    depths = [32, 64, 128]
 
-biases = {
-    'bc1': tf.Variable(tf.zeros([depths[0]])),
-    'bc2': tf.Variable(tf.zeros([depths[1]])),
-    'bd1': tf.Variable(tf.zeros([depths[2]])),
-    'out': tf.Variable(tf.zeros([1]))}
+    # Weight initialization standard deviations
+    std_devs = [2.0 / (9 * depths[0]) ** 0.5, 2.0 / (9 * depths[0] * depths[1]) ** 0.5,
+                2.0 / (9 * depths[1] * depths[2]) ** 0.5, 1.0 / (depths[2]) ** 0.5]
 
-# train(data_directory='training_data/set3', save=True)
+    # Weight and bias variables
+    weights = {
+        'wc1': tf.Variable(tf.random_normal(shape=[3, 3, 1, depths[0]], stddev=std_devs[0])),
+        'wc2': tf.Variable(tf.random_normal(shape=[3, 3, depths[0], depths[1]], stddev=std_devs[1])),
+        'wd1': tf.Variable(tf.random_normal(shape=[9 * depths[1], depths[2]], stddev=std_devs[2])),
+        'out': tf.Variable(tf.random_normal(shape=[depths[2], 1], stddev=std_devs[3]))}
 
-find_and_save_mistakes('training_data/set2/cells', 1.0, 'training_data/set2/false_negatives')
-# find_and_save_mistakes('training_data/set2/non_cells', 0.0, 'training_data/set2/false_positives')
+    biases = {
+        'bc1': tf.Variable(tf.zeros([depths[0]])),
+        'bc2': tf.Variable(tf.zeros([depths[1]])),
+        'bd1': tf.Variable(tf.zeros([depths[2]])),
+        'out': tf.Variable(tf.zeros([1]))}
+
+    train(data_directory='training_data/set3', save=True)
+
+    # find_and_save_mistakes('training_data/set3/cells', 1.0, 'training_data/set3/false_negatives')
+    # find_and_save_mistakes('training_data/set2/non_cells', 0.0, 'training_data/set2/false_positives')
 
