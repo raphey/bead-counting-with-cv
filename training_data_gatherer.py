@@ -27,7 +27,7 @@ class ClickClass():
 
 
 def print_positive_examples():
-    click = ClickClass('images/test_array_1_hi_res.png')
+    click = ClickClass('images/test_array_1.png')
     click.getCoord()
 
 
@@ -95,7 +95,7 @@ def grab_9x9_image_section(img, x, y):
 
 
 # Load image and convert image to grayscale
-image_path = 'images/test_array_1_hi_res.png'
+image_path = 'images/test_array_1.png'
 image = cv2.imread(image_path)
 grayscale_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 

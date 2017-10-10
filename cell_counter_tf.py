@@ -91,7 +91,7 @@ with tf.Session() as sess:
     print("TensorFlow model restored.")
 
     # Load image, make a copy for final output, and convert image to grayscale
-    image_path = 'images/test_array_1_hi_res_4x.png'
+    image_path = 'images/test_array_1_4x.png'
     image = cv2.imread(image_path)
     output = image.copy()
     grayscale_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
