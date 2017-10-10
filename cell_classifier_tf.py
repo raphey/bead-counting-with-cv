@@ -12,8 +12,8 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
-cell_data = import_data('training_data/set1/cells')
-non_cell_data = import_data('training_data/set1/non_cells')
+cell_data = import_data('training_data/set1/cells', full_normalization=True)
+non_cell_data = import_data('training_data/set1/non_cells', full_normalization=True)
 training, validation, testing = prepare_data(cell_data, non_cell_data, flat=True)
 
 sess = tf.InteractiveSession()

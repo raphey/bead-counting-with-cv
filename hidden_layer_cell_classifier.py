@@ -19,8 +19,8 @@ def make_prediction(x, w1, b1, w2, b2):
 
 def train(save=False, verbose=False):
 
-    cell_data = import_data('training_data/set1/cells')
-    non_cell_data = import_data('training_data/set1/non_cells')
+    cell_data = import_data('training_data/set1/cells', full_normalization=True)
+    non_cell_data = import_data('training_data/set1/non_cells', full_normalization=True)
     training, validation, testing = prepare_data(cell_data, non_cell_data, flat=True)
 
     weight1 = initialize_weight_array(784, 25)
