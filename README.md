@@ -1,7 +1,7 @@
 ## Detecting cell frequencies with computer vision
 
 
-My biologist friend wants to be able to take an image like what's below, with an array water droplets containing varying numbers of cells<sup>1</sup>, and automatically determine the frequency distribution of cells per droplet.
+A biologist friend of mine wants to be able to take an image like what's below, with an array of water droplets containing varying numbers of cells<sup>1</sup>, and automatically determine the frequency distribution of cells per droplet.
 
 ![array of water droplets containing cells](images/test_array_lo_res.png)
 
@@ -26,7 +26,8 @@ This is how I've approached the various sub-problems:
 
 ### To-do
 
-- Improve cell recognition with better training data
+- Improve cell recognition with better training data.
+- Modify and add documentation to training_data_tools so other people can gather better training data.
 
 
 ### File descriptions
