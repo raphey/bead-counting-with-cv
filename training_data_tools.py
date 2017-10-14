@@ -63,31 +63,31 @@ def save_training_data_from_coords(img, save_directory, pos_coords, pos_radius=0
     # Set of coordinates prohibited for negative examples (too close to positive examples)
     non_negative_coords = set()
 
-    cell_counter = 0
+    bead_counter = 0
 
     for x, y in pos_coords:
         for x_adj, y_adj in pos_shift_pairs:
             if not (4 <= x + x_adj < len(img[0]) - 4 and 4 <= y + y_adj < len(img) - 4):
                 continue
-            cell_img = grab_9x9_image_section(img, x + x_adj, y + y_adj)
-            count_label = str(1000000 + cell_counter)[1:]
-            cv2.imwrite('{}/cells/sample_{}_x{}_y{}.png'.format(
-                        save_directory, count_label, x + x_adj, y + y_adj), cell_img)
-            cell_counter += 1
+            bead_img = grab_9x9_image_section(img, x + x_adj, y + y_adj)
+            count_label = str(1000000 + bead_counter)[1:]
+            cv2.imwrite('{}/beads/sample_{}_x{}_y{}.png'.format(
+                        save_directory, count_label, x + x_adj, y + y_adj), bead_img)
+            bead_counter += 1
         for x_adj, y_adj in neg_shift_pairs:
             non_negative_coords.add((x + x_adj, y + y_adj))
 
-    non_cell_counter = 0
+    non_bead_counter = 0
 
     for x in range(edge_border, len(img[0]) - edge_border, neg_stride):
         for y in range(edge_border, len(img) - edge_border, neg_stride):
             if (x, y) in non_negative_coords:
                 continue
-            non_cell_img = grab_9x9_image_section(img, x, y)
-            count_label = str(1000000 + non_cell_counter)[1:]
-            cv2.imwrite('{}/non_cells/sample_{}_x{}_y{}.png'.format(
-                        save_directory, count_label, x, y), non_cell_img)
-            non_cell_counter += 1
+            non_bead_img = grab_9x9_image_section(img, x, y)
+            count_label = str(1000000 + non_bead_counter)[1:]
+            cv2.imwrite('{}/non_beads/sample_{}_x{}_y{}.png'.format(
+                        save_directory, count_label, x, y), non_bead_img)
+            non_bead_counter += 1
 
 
 def grab_9x9_image_section(img, x, y):
@@ -101,6 +101,6 @@ if __name__ == '__main__':
     grayscale_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
     # Load positive example coordinates from csv
-    pos_data = np.loadtxt(open("training_data/set3/cell_coords_refined.csv", "rb"), delimiter=",", skiprows=1, dtype=int)
+    pos_data = np.loadtxt(open("training_data/set3/bead_coords_refined.csv", "rb"), delimiter=",", skiprows=1, dtype=int)
 
     save_training_data_from_coords(grayscale_image, 'training_data/set3', pos_data, pos_radius=1, neg_radius=3)

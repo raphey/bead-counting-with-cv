@@ -48,13 +48,13 @@ def shuffle_and_split_data(arr, valid_portion, test_portion):
     return arr[:validation_cutoff], arr[validation_cutoff: test_cutoff], arr[test_cutoff:]
 
 
-def combine_and_shuffle_data(cell_training_data, non_cell_training_data):
+def combine_and_shuffle_data(bead_training_data, non_bead_training_data):
     """
-    Returns a shuffled combination of data and labels for cells and non-cells.
+    Returns a shuffled combination of data and labels for beads and non-beads.
     """
-    all_training_labels = np.vstack((np.ones((cell_training_data.shape[0], 1)),
-                                     np.zeros((non_cell_training_data.shape[0], 1))))
-    all_training_data = np.vstack((cell_training_data, non_cell_training_data))
+    all_training_labels = np.vstack((np.ones((bead_training_data.shape[0], 1)),
+                                     np.zeros((non_bead_training_data.shape[0], 1))))
+    all_training_data = np.vstack((bead_training_data, non_bead_training_data))
     p = np.random.permutation(len(all_training_labels))
     return all_training_data[p], all_training_labels[p]     # Using np's cool indexing
 
@@ -67,33 +67,33 @@ def flatten_images(img_data):
     return img_data.reshape(-1, h * w)
 
 
-def prepare_data(c_data, nc_data, valid_portion=0.1, test_portion=0.1, flat=False):
+def prepare_data(b_data, nb_data, valid_portion=0.1, test_portion=0.1, flat=False):
     """
     Returns three items, corresponding to training data, validation data, and testing data.
     Training data is in the form of (images, labels). Validation and testing data are in the
-    form of (cell_images, cell_labels, non_cell_images, non_cell_labels), since we'll want
+    form of (bead_images, bead_labels, non_bead_images, non_bead_labels), since we'll want
     separate counts for positive and negative accuracy.
     With flatten on, all image data is converted from shape [28, 28] to [784].
     """
     if flat:
-        c_data = flatten_images(c_data)
-        nc_data = flatten_images(nc_data)
+        b_data = flatten_images(b_data)
+        nb_data = flatten_images(nb_data)
 
     # Separately split positive and negative data
-    c_train, c_valid, c_test = shuffle_and_split_data(c_data, valid_portion, test_portion)
-    nc_train, nc_valid, nc_test = shuffle_and_split_data(nc_data, valid_portion, test_portion)
+    b_train, b_valid, b_test = shuffle_and_split_data(b_data, valid_portion, test_portion)
+    nb_train, nb_valid, nb_test = shuffle_and_split_data(nb_data, valid_portion, test_portion)
 
-    train_data_w_labels = combine_and_shuffle_data(c_train, nc_train)
+    train_data_w_labels = combine_and_shuffle_data(b_train, nb_train)
 
     # Get validation labels and make validation 4-tuple
-    c_valid_labels = np.ones(shape=[len(c_valid), 1])
-    nc_valid_labels = np.zeros(shape=[len(nc_valid), 1])
-    valid_data_w_labels = (c_valid, c_valid_labels, nc_valid, nc_valid_labels)
+    b_valid_labels = np.ones(shape=[len(b_valid), 1])
+    nb_valid_labels = np.zeros(shape=[len(nb_valid), 1])
+    valid_data_w_labels = (b_valid, b_valid_labels, nb_valid, nb_valid_labels)
 
     # Get testing labels and make testing 4-tuple
-    c_test_labels = np.ones(shape=[len(c_test), 1])
-    nc_test_labels = np.zeros(shape=[len(nc_test), 1])
-    test_data_w_labels = (c_test, c_test_labels, nc_test, nc_test_labels)
+    b_test_labels = np.ones(shape=[len(b_test), 1])
+    nb_test_labels = np.zeros(shape=[len(nb_test), 1])
+    test_data_w_labels = (b_test, b_test_labels, nb_test, nb_test_labels)
 
     return train_data_w_labels, valid_data_w_labels, test_data_w_labels
 
@@ -125,9 +125,9 @@ def accuracy(y_pred, y_actual):
 
 
 def unit_tests():
-    cell_data = import_data('training_data/cells')
-    non_cell_data = import_data('training_data/non_cells')
-    training, validation, testing = prepare_data(cell_data, non_cell_data)
+    bead_data = import_data('training_data/beads')
+    non_bead_data = import_data('training_data/non_beads')
+    training, validation, testing = prepare_data(bead_data, non_bead_data)
 
     # train/valid/test tuples are correct length
     assert(len(training) == 2)
