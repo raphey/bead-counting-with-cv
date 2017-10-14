@@ -19,7 +19,7 @@ This is how I've approached the various sub-problems:
 
 ![example of droplet circles](images/droplet_circles_example.png)
 
-2. Detecting beads. I collected about 700 examples of centered 9x9 images of beads, I trained a CNN and looked at the false negatives, then I refined/expanded the data and trained another CNN with 3500 positive examples. Using the model, I pass a 9x9 window across the image and select the likely beads. Below are four positive examples and four negative examples--the fourth positive example is not great. This is the main place where there's room for improvement--I'm hoping my friend will get me eight images' worth of bead locations, where the bead locations were centered down to the quarter-pixel. (Centering at the original resolution often puts the beads slightly off to one side.)
+2. Detecting beads. I collected about 700 examples of centered 9x9 images of beads, I trained a CNN and looked at the false negatives, then I refined/expanded the data and trained another CNN with 3500 positive examples. Using the model, I pass a 9x9 window across the image and select the likely beads. Below are four positive training examples and four negative examples--the fourth positive example is not great. The training data is the main place where there's room for improvement--I'm hoping my friend will get me eight images' worth of bead locations, where the bead locations were centered down to the quarter-pixel. (Centering at the original resolution often puts the beads slightly off to one side, as seen in the examples below.)
 
 ![example of training data](images/training_data_example.png)
 
