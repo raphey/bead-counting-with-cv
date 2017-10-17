@@ -19,11 +19,11 @@ This is how I've approached the various sub-problems:
 
 ![example of droplet circles](images/droplet_circles_example.png)
 
-2. Detecting beads. I collected about 700 examples of centered 9x9 images of beads, I trained a CNN and looked at the false negatives, then I refined/expanded the data and trained another CNN with 3500 positive examples. Using the model, I pass a 9x9 window across the image and select the likely beads. Below are four positive training examples and four negative examples--the fourth positive example is not great. The training data is the main place where there's room for improvement--I'm hoping my friend will get me eight images' worth of bead locations, where the bead locations were centered down to the quarter-pixel. (Centering at the original resolution often puts the beads slightly off to one side, as seen in the examples below.)
+2. Detecting beads. Circle detection didn't work too well for the beads, so I collected about 700 examples of centered 9x9 images of beads, I trained a CNN and looked at the false negatives, then I refined/expanded the data and trained another CNN with 3500 positive examples. Using the model, I pass a 9x9 window across the image and select the likely beads. Below are four positive training examples and four negative examples--the fourth positive example is not great. The training data is the main place where there's room for improvement--I'm hoping my friend will get me eight images' worth of bead locations, where the bead locations were centered down to the quarter-pixel. (Centering at the original resolution often puts the beads slightly off to one side, as seen in the examples below.)
 
 ![example of training data](images/training_data_example.png)
 
-3. Image processing. My main pre-processing step was to scale the images to be larger--OpenCV restricts some parameters to integer values (minDist, minRadius, maxRadius), and this lets me get around that. All of my other processing efforts seemed to have very little impact. The image below looks like it would be much easier to work with, but I found that my bead recognition performed no better--maybe the canny edge detection is already accomplishing most of what I was trying to do by hand with pre-processing. 
+3. Image processing. My main pre-processing step was to scale the images to be larger--OpenCV restricts some parameters to integer values (minDist, minRadius, maxRadius), and this lets me get around that. The larger images also allow for a quarter-pixel "hi-res" window for bead detection, which could allow for better bead centering. All of my other processing efforts seemed to have very little impact. The image below looks like it would be much easier to work with, but I found that my circle-detection-based bead recognition performed no better--maybe the Canny edge detection is already accomplishing most of what I was trying to do by hand with pre-processing. I haven't yet tried the thresholded image with the NN--that may improve performance substantially, or at least reduce training time.
 
 ![thresholded droplets image](images/test_array_1_thresholded_small.png)
 
@@ -34,6 +34,7 @@ This is how I've approached the various sub-problems:
 
 - Improve bead recognition with better training data.
 - Modify and add documentation to training_data_tools so other people can gather better training data.
+- Try training a network with a thresholded version of the image
 
 
 ### File descriptions
