@@ -1,9 +1,7 @@
 __author__ = 'raphey'
 
-import numpy as np
+
 import tensorflow as tf
-import glob
-import cv2
 from classifier_util import *
 import os
 
@@ -54,7 +52,7 @@ def train(data_directory, save=False):
     epochs = 20
     batch_size = 32
     num_batches = len(training[0]) // batch_size
-    learning_rate = 0.001
+    learning_rate = 0.0005
     keep_prob = 0.5
 
     # Graph for logits
@@ -130,9 +128,11 @@ def find_and_save_mistakes(image_directory, correct_label, save_directory):
         saver.restore(sess, "classifier_data/tf_cnn_classifier/tf_cnn_model.ckpt")
         print("TensorFlow model restored.")
 
-        for image_path in glob.glob(image_directory + '/*.png'):
-            img = cv2.imread(image_path)
-            img_name = image_path[image_path.find('sample'):]
+        for img_path in glob.glob(image_directory + '/*.png'):
+            img = cv2.imread(img_path)
+
+            img_name = os.path.basename(os.path.normpath(img_path))
+            assert(img_name == img_path[img_path.find('sample'):])
 
             gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(float)
 
@@ -166,9 +166,9 @@ if __name__ == '__main__':
     # Convolutional filter depths:
     depths = [32, 64, 128]
 
-    # Weight initialization standard deviations
-    std_devs = [2.0 / (9 * depths[0]) ** 0.5, 2.0 / (9 * depths[0] * depths[1]) ** 0.5,
-                2.0 / (9 * depths[1] * depths[2]) ** 0.5, 1.0 / (depths[2]) ** 0.5]
+    # Weight initialization standard deviations, designed to have variance 1.0
+    std_devs = [2.0 / 9.0, 2.0 / (25 * depths[0]) ** 0.5,
+                2.0 / (9 * depths[1]) ** 0.5, 1.0 / (depths[2]) ** 0.5]
 
     # Weight and bias variables
     weights = {
